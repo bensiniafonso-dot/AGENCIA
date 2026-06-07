@@ -774,7 +774,7 @@ html[data-theme="dark"] .header .lang-app .lp.active{
 
 <!-- Banner erreur configuration -->
 <div id="config-banner">
-  ⚠️ URL de l'API non configurée — Ouvrir ce fichier HTML et remplacer <code>https://script.google.com/macros/s/AKfycbxvkJFzutfJIZkC2tXdroFawnha_vqQ9ubB0wYM7rflxWNrMIIdxoPIHcU-QqNdQgLT4A/exec</code> par l'URL de votre déploiement Apps Script
+  ⚠️ URL de l'API non configurée — Renseigner la variable <code>API_URL</code> en tête de ce fichier (URL Web App Apps Script se terminant par <code>/exec</code>).
 </div>
 
 <!-- ══ LOGIN ══ -->
@@ -1223,16 +1223,25 @@ function logoutAgencyIdle() {
 // ═══════════════════════════════════════════════════════════════════
 // UTILS
 // ═══════════════════════════════════════════════════════════════════
+function isApiUrlUnconfigured(url){
+  if(!url || typeof url !== 'string') return true;
+  const u = url.trim();
+  if(u.indexOf('http') !== 0) return true;
+  if(u === 'COLLER_URL_APPS_SCRIPT_ICI' || u === 'VOTRE_URL_API_APPS_SCRIPT') return true;
+  if(u.indexOf('VOTRE_DEPLOIEMENT_APPS_SCRIPT') !== -1) return true;
+  return false;
+}
+
 function checkApiConfig(){
-  const notConf = !API_URL || API_URL === 'https://script.google.com/macros/s/AKfycbxvkJFzutfJIZkC2tXdroFawnha_vqQ9ubB0wYM7rflxWNrMIIdxoPIHcU-QqNdQgLT4A/exec';
+  const notConf = isApiUrlUnconfigured(API_URL);
   const banner = document.getElementById('config-banner');
   if(notConf && banner) banner.classList.add('show');
   return !notConf;
 }
 
 async function api(payload){
-  if(!API_URL || API_URL === 'https://script.google.com/macros/s/AKfycbxvkJFzutfJIZkC2tXdroFawnha_vqQ9ubB0wYM7rflxWNrMIIdxoPIHcU-QqNdQgLT4A/exec'){
-    throw new Error('⚠️ URL de l\'API non configurée. Ouvrez ce fichier HTML et remplacez https://script.google.com/macros/s/AKfycbxvkJFzutfJIZkC2tXdroFawnha_vqQ9ubB0wYM7rflxWNrMIIdxoPIHcU-QqNdQgLT4A/exec par l\'URL de votre déploiement Apps Script Google.');
+  if(isApiUrlUnconfigured(API_URL)){
+    throw new Error('⚠️ URL de l\'API non configurée. Renseignez API_URL en tête de ce fichier (Web App Apps Script /exec).');
   }
   const r = await fetch(API_URL, {
     method:'POST',
