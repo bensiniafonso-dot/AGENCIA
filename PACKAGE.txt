@@ -1,0 +1,8 @@
+Application : NH Liberdade - Agencias
+Interface : Grand ecran
+Package Android : io.github.nhcollection_lisboa.transfer_parceiro_pc
+
+URL mono-depot : https://VOTRE_USER_GITHUB.github.io/nh-liberdade-transfers/PC/transfer-parceiro/
+URL repo dedie : https://VOTRE_USER_GITHUB.github.io/nh-liberdade-transfers/
+
+Keystore : PWABuilder â€” https://www.pwabuilder.com/

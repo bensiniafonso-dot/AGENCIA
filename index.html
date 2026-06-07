@@ -1,0 +1,2396 @@
+<!DOCTYPE html>
+
+<!--
+  Nhalabene — solution ERP transferts (NH Collection Lisboa Liberdade).
+  Auteur : Sigagomes Afonso.
+-->
+
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,viewport-fit=cover">
+<title>Portal Agências — NH Collection Lisboa Liberdade</title>
+<meta name="theme-color" content="#EEF2F7">
+<script>
+(function(){try{if(localStorage.getItem('nhc_agency_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+
+<!--
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  AGENCE_Portal_v7_PROD.html — NH Collection Lisboa Liberdade                     ║
+║  VERSION PRODUCTION — À DISTRIBUER AUX AGENCES PARTENAIRES                  ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║  CONFIGURATION OBLIGATOIRE AVANT DISTRIBUTION :                              ║
+║                                                                              ║
+║  1. API_URL  → Coller ici l'URL du deploy Google Apps Script                 ║
+║     Exemple : https://script.google.com/macros/s/AKfy.../exec               ║
+║                                                                              ║
+║  FONCTIONNALITÉS v7 :                                                        ║
+║  ✅ Correction erreur "URL non configurée" → URL intégrée dans le fichier    ║
+║  ✅ Confirmation WhatsApp vers l'HÔTEL (pas seulement le client)             ║
+║  ✅ WhatsApp de confirmation bidirectionnel (agence → hôtel)                 ║
+║  ✅ Demande de confirmation de disponibilité par WhatsApp au client final     ║
+║  ✅ Vue Timeline "Prochains Transfers"                                       ║
+║  ✅ Navigation modale ← →  + clavier                                        ║
+║  ✅ Export Excel (2 onglets) + PDF imprimable                                ║
+║  ✅ Récupération mot de passe par email (si l'action existe côté Apps Script)║
+║  ✅ Multilingue PT / EN / FR / ES                                            ║
+║  ✅ Sessions persistantes (sessionStorage)                                   ║
+║  ✅ Alertes navigateur + actualização periódica (novas reservas atribuídas)     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+-->
+
+<script>
+  // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+  //  ★★★ COLLER VOTRE URL ICI — C'EST LA SEULE CHOSE À CHANGER ★★★
+  const API_URL = 'https://script.google.com/macros/s/AKfycbxvkJFzutfJIZkC2tXdroFawnha_vqQ9ubB0wYM7rflxWNrMIIdxoPIHcU-QqNdQgLT4A/exec';
+  //  Exemple : 'https://script.google.com/macros/s/AKfy.../exec'
+  //
+  //  CONTACT WHATSAPP DE L'HÔTEL (pour que l'agence puisse envoyer
+  //  ses confirmations directement à l'hôtel)
+  const HOTEL_WA_NUMBER = '+351213514060';   // ← Numéro WhatsApp de l'hôtel
+  const HOTEL_NOM       = 'NH Collection Lisboa Liberdade';
+  // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+</script>
+
+<!-- SheetJS pour export Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0D2137;--navy3:#1B4F72;--navy-light:#1e3a5f;
+  --gold:#C9A84C;--gold-b:rgba(201,168,76,.3);--gold-s:rgba(201,168,76,.08);
+  --bg:#EEF2F7;--surface:#F7F9FB;--white:#fff;
+  --border:#D8E2EC;--border2:#E5EDF5;
+  --text:#111827;--tm:#374151;--ts:#475569;--tl:#64748b;
+  --danger:#DC2626;--danger-bg:#FEF2F2;--danger-b:#FECACA;
+  --success:#059669;--success-bg:#ECFDF5;--success-b:#A7F3D0;
+  --warn:#D97706;--warn-bg:#FFFBEB;--warn-b:#FDE68A;
+  --info:#1B4F72;--info-bg:#EFF6FF;--info-b:#BFDBFE;
+  --whatsapp:#25D366;--wa-bg:rgba(37,211,102,.08);--wa-b:rgba(37,211,102,.25);
+  --upcoming:#7C3AED;--up-bg:#F5F3FF;--up-b:#DDD6FE;
+  --hotel-wa:#0F5C2E;--hotel-wa-bg:rgba(15,92,46,.08);--hotel-wa-b:rgba(15,92,46,.25);
+  --r:8px;--r-lg:12px;--r-xl:16px;--r-2xl:20px;
+  --shadow:0 1px 3px rgba(0,0,0,.08);--shadow-lg:0 4px 16px rgba(13,33,55,.12);
+  --ease:.22s cubic-bezier(.4,0,.2,1);
+}
+/* Sans ceci, Chrome/Edge (surtout Windows thème sombre) affichent date/select en « style sombre » même sur une page claire */
+html{color-scheme:light}
+html,body{height:100%;overflow-x:hidden}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
+.screen{display:none;min-height:100vh}.screen.on{display:flex}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.fadein{animation:fadeUp .4s ease both}
+
+/* ══ BANNER CONFIG ══ */
+#config-banner{background:linear-gradient(135deg,#7f1d1d,#991b1b);color:#fff;padding:12px 20px;font-size:13px;font-weight:600;text-align:center;display:none;position:fixed;top:0;left:0;right:0;z-index:9999;border-bottom:2px solid #dc2626}
+#config-banner.show{display:block}
+
+/* ══ LOGIN ══ */
+#login-screen{background:linear-gradient(135deg,var(--navy) 0%,var(--navy3) 100%);flex-direction:column;align-items:center;justify-content:center;padding:24px;position:relative;overflow:hidden}
+#login-screen::before{content:'';position:absolute;top:-20%;right:-10%;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(201,168,76,.06),transparent 60%);pointer-events:none}
+#login-screen::after{content:'';position:absolute;bottom:-15%;left:-8%;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(27,79,114,.3),transparent 60%);pointer-events:none}
+.lang-top{position:absolute;top:16px;right:16px;display:flex;gap:6px;z-index:10;align-items:center}
+.lang-select-mobile{display:none;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;border-radius:var(--r);cursor:pointer}
+.lang-app .lang-select-mobile{width:100%}
+.lp{padding:5px 11px;border-radius:14px;border:1px solid rgba(255,255,255,.2);font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;color:rgba(255,255,255,.6);cursor:pointer;transition:var(--ease);background:transparent}
+.lp:hover{border-color:var(--gold);color:var(--gold)}
+.lp.active{background:var(--gold);color:var(--navy);border-color:var(--gold)}
+.login-box{background:var(--white);border-radius:var(--r-2xl);padding:40px 36px;width:100%;max-width:420px;box-shadow:0 24px 64px rgba(0,0,0,.35);animation:fadeUp .5s ease;position:relative;z-index:1}
+.login-logo{text-align:center;margin-bottom:24px}
+.login-emblem{width:62px;height:62px;border-radius:50%;background:var(--navy);display:inline-flex;align-items:center;justify-content:center;margin-bottom:10px;box-shadow:0 4px 16px rgba(13,33,55,.4)}
+.login-emblem svg{width:26px;height:26px;fill:var(--gold)}
+.login-brand{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:var(--navy);letter-spacing:.04em}
+.login-sub{font-size:11px;color:var(--ts);letter-spacing:.14em;text-transform:uppercase;margin-top:3px}
+.login-divider{height:1px;background:linear-gradient(90deg,transparent,var(--gold-b),transparent);margin:20px 0}
+.login-title{font-size:15px;font-weight:600;color:var(--navy);margin-bottom:18px;text-align:center}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--ts);margin-bottom:5px}
+.field input{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);transition:var(--ease)}
+.field input:focus{outline:none;border-color:var(--navy3);box-shadow:0 0 0 3px rgba(27,79,114,.1)}
+.msg-box{border-radius:var(--r);padding:10px 14px;font-size:13px;margin-bottom:14px;display:none}
+.msg-box.show{display:block}
+.msg-box.err{background:var(--danger-bg);border:1px solid var(--danger-b);color:var(--danger)}
+.msg-box.ok{background:var(--success-bg);border:1px solid var(--success-b);color:var(--success)}
+.msg-box.warn{background:var(--warn-bg);border:1px solid var(--warn-b);color:var(--warn)}
+.btn-primary{width:100%;padding:13px;background:linear-gradient(135deg,var(--navy),var(--navy3));color:#fff;border:none;border-radius:var(--r-lg);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:opacity .2s,transform .2s;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-primary:hover{opacity:.9;transform:translateY(-1px)}.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-primary .sp{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
+.btn-primary.loading .sp{display:block}.btn-primary.loading .btn-t{display:none}
+.login-footer{text-align:center;margin-top:18px;font-size:11px;color:var(--tl);line-height:1.8}
+.toggle-link{font-size:12px;color:var(--navy3);cursor:pointer;text-align:center;margin-top:12px;text-decoration:underline;opacity:.8;transition:opacity .2s}
+.toggle-link:hover{opacity:1}
+.step-indicator{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:16px}
+.step-dot{width:8px;height:8px;border-radius:50%;background:var(--border);transition:var(--ease)}
+.step-dot.active{background:var(--gold);transform:scale(1.3)}
+.step-dot.done{background:var(--success)}
+.step-label{font-size:11px;color:var(--ts);text-align:center;margin-bottom:14px}
+.code-hint{font-size:11px;color:var(--ts);text-align:center;margin-top:8px;font-style:italic}
+
+/* ══ APP ══ */
+#app-screen{flex-direction:column}
+.header{background:var(--navy);padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 12px rgba(0,0,0,.25);position:sticky;top:0;z-index:200;flex-shrink:0}
+.header-left{display:flex;align-items:center;gap:14px}
+.header-logo{width:36px;height:36px;border-radius:50%;background:rgba(201,168,76,.15);border:1px solid var(--gold-b);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.header-logo svg{width:16px;height:16px;fill:var(--gold)}
+.header-title{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:600;color:#fff;letter-spacing:.04em}
+.header-title em{color:var(--gold);font-style:normal}
+.header-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lang-app{display:flex;gap:4px}
+.ag-badge{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:500;color:rgba(255,255,255,.85);display:flex;align-items:center;gap:6px}
+.dot-ok{width:6px;height:6px;border-radius:50%;background:#6ee7b7;flex-shrink:0;animation:pulse 2s infinite}
+.btn-hdr{background:transparent;border:1px solid rgba(255,255,255,.2);border-radius:var(--r);padding:6px 10px;font-family:'DM Sans',sans-serif;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.6);cursor:pointer;transition:var(--ease)}
+.btn-hdr:hover{border-color:rgba(255,255,255,.5);color:#fff}
+
+/* ══ TABS ══ */
+.tabs-bar{background:var(--white);border-bottom:2px solid var(--border2);display:flex;padding:0 24px;position:sticky;top:60px;z-index:190;flex-shrink:0;overflow-x:auto}
+.tab-btn{padding:14px 20px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--ts);cursor:pointer;border:none;background:transparent;border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap;display:flex;align-items:center;gap:7px;transition:var(--ease)}
+.tab-btn:hover{color:var(--navy)}
+.tab-btn.active{color:var(--navy);border-bottom-color:var(--gold)}
+.tab-btn .tab-count{background:var(--gold-s);color:var(--gold);border:1px solid var(--gold-b);border-radius:10px;font-size:10px;font-weight:700;padding:1px 7px}
+.tab-btn.active .tab-count{background:var(--gold);color:var(--navy)}
+.tab-panel{display:none}.tab-panel.active{display:block}
+
+.main{flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:var(--white);border-radius:var(--r-lg);padding:20px;border:1px solid var(--border);box-shadow:var(--shadow);display:flex;align-items:center;gap:14px;transition:var(--ease);cursor:pointer}
+.stat-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-1px)}
+.stat-card.active-filter{border-color:var(--navy);box-shadow:0 0 0 3px rgba(27,79,114,.15)}
+.stat-icon{width:44px;height:44px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.si-b{background:var(--info-bg)}.si-y{background:var(--warn-bg)}.si-g{background:var(--success-bg)}.si-r{background:var(--danger-bg)}.si-p{background:var(--up-bg)}
+.stat-val{font-size:28px;font-weight:700;color:var(--navy);line-height:1;font-family:'Cormorant Garamond',serif}
+.stat-lbl{font-size:11px;color:var(--ts);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+.card{background:var(--white);border-radius:var(--r-lg);border:1px solid var(--border);box-shadow:var(--shadow)}
+.card-hdr{padding:16px 20px;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.card-ttl{font-size:14px;font-weight:600;color:var(--navy);display:flex;align-items:center;gap:8px}
+.card-ttl::before{content:'';width:3px;height:16px;background:var(--gold);border-radius:2px}
+.hdr-acts{display:flex;gap:8px;flex-wrap:wrap}
+.filters{padding:14px 20px;background:var(--surface);border-bottom:1px solid var(--border2);display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.fg-f{display:flex;flex-direction:column;gap:4px}
+.fg-f label{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ts)}
+.f-inp{padding:8px 11px;border:1px solid var(--border);border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--white);transition:var(--ease);min-width:140px}
+.f-inp:focus{outline:none;border-color:var(--navy3);box-shadow:0 0 0 2px rgba(27,79,114,.08)}
+/* Filtres (mode clair) — contraste labels + bouton Limpar + champs natifs lisibles */
+html:not([data-theme="dark"]) .filters{color-scheme:light}
+html:not([data-theme="dark"]) .filters .fg-f label{color:#374151;font-weight:700}
+html:not([data-theme="dark"]) .filters .f-inp,
+html:not([data-theme="dark"]) .filters select.f-inp{background:#fff;color:#1a1a1a;border-color:#c5d4e3}
+html:not([data-theme="dark"]) .filters .btn-ghost{color:#1b4f72;border-color:#b8c9dc;background:#fff}
+html:not([data-theme="dark"]) .filters .btn-ghost:hover{color:var(--navy);border-color:var(--navy3);background:#f8fafc}
+/* Visibilité mode clair — tout le portail (libellés, champs natifs, boutons secondaires) */
+html:not([data-theme="dark"]) #app-screen{color-scheme:light}
+html:not([data-theme="dark"]) .field label,
+html:not([data-theme="dark"]) .fg-f label,
+html:not([data-theme="dark"]) .m-field label,
+html:not([data-theme="dark"]) .info-label{font-weight:700;color:#334155}
+html:not([data-theme="dark"]) .stat-lbl{font-weight:700;color:#475569}
+html:not([data-theme="dark"]) .tab-btn{color:#475569}
+html:not([data-theme="dark"]) .tab-btn:hover{color:var(--navy)}
+html:not([data-theme="dark"]) .tab-btn.active{color:var(--navy)}
+html:not([data-theme="dark"]) .page-info,
+html:not([data-theme="dark"]) .loader p,
+html:not([data-theme="dark"]) .empty-sub,
+html:not([data-theme="dark"]) .upcoming-sub,
+html:not([data-theme="dark"]) .tl-route,
+html:not([data-theme="dark"]) .tl-meta span,
+html:not([data-theme="dark"]) .tl-time-lbl,
+html:not([data-theme="dark"]) .hotel-wa-desc{color:#5b6472}
+html:not([data-theme="dark"]) .session-bar{color:#5b6472}
+html:not([data-theme="dark"]) .session-bar strong{color:var(--navy);font-weight:700}
+html:not([data-theme="dark"]) .field input,
+html:not([data-theme="dark"]) .f-inp,
+html:not([data-theme="dark"]) .m-inp,
+html:not([data-theme="dark"]) .m-sel,
+html:not([data-theme="dark"]) .m-ta{background:#fff;color:#111827;border-color:#c5d4e3}
+html:not([data-theme="dark"]) .btn-ghost{color:#1b4f72;border-color:#b8c9dc;background:#fff}
+html:not([data-theme="dark"]) .btn-ghost:hover{color:var(--navy);border-color:var(--navy3);background:#f8fafc}
+html:not([data-theme="dark"]) .page-btn{color:#475569;background:#fff;border-color:#c5d4e3}
+html:not([data-theme="dark"]) .page-btn:hover{color:var(--navy);border-color:var(--navy3)}
+html:not([data-theme="dark"]) .login-footer{color:#64748b}
+html:not([data-theme="dark"]) .step-label,
+html:not([data-theme="dark"]) .code-hint{color:#5b6472}
+.btn{padding:7px 14px;border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:var(--ease);border:1px solid;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.btn-navy{background:var(--navy);color:#fff;border-color:var(--navy)}.btn-navy:hover{background:var(--navy3)}
+.btn-ghost{background:transparent;color:var(--ts);border-color:var(--border)}.btn-ghost:hover{border-color:var(--navy);color:var(--navy)}
+.btn-success{background:var(--success-bg);color:var(--success);border-color:var(--success-b)}.btn-success:hover{background:var(--success);color:#fff}
+.btn-danger{background:var(--danger-bg);color:var(--danger);border-color:var(--danger-b)}.btn-danger:hover{background:var(--danger);color:#fff}
+.btn-warn{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-b)}.btn-warn:hover{background:var(--warn);color:#000}
+.btn-wa{background:var(--wa-bg);color:var(--whatsapp);border-color:var(--wa-b)}.btn-wa:hover{background:var(--whatsapp);color:#fff}
+.btn-hotel-wa{background:var(--hotel-wa-bg);color:var(--hotel-wa);border-color:var(--hotel-wa-b)}.btn-hotel-wa:hover{background:var(--hotel-wa);color:#fff}
+.btn-upcoming{background:var(--up-bg);color:var(--upcoming);border-color:var(--up-b)}.btn-upcoming:hover{background:var(--upcoming);color:#fff}
+.btn-sm{padding:4px 9px;font-size:11px}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+thead tr{background:linear-gradient(90deg,var(--navy),var(--navy-light))}
+thead th{padding:11px 14px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);white-space:nowrap}
+thead th.th-sort{cursor:pointer;user-select:none}thead th.th-sort:hover{opacity:.9}
+tbody tr{border-bottom:1px solid var(--border2);transition:background .15s}
+tbody tr:hover{background:var(--surface)}
+tbody tr:last-child{border-bottom:none}
+td{padding:12px 14px;font-size:13px;color:var(--tm);vertical-align:middle;white-space:nowrap}
+td.bold{font-weight:600;color:var(--text)}
+td.mono{font-family:monospace;font-size:12px;color:var(--navy3);font-weight:600}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.badge::before{content:'';width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.b-pend{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-b)}.b-pend::before{background:var(--warn)}
+.b-conf{background:var(--success-bg);color:var(--success);border:1px solid var(--success-b)}.b-conf::before{background:var(--success)}
+.b-canc{background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-b)}.b-canc::before{background:var(--danger)}
+.b-real{background:var(--info-bg);color:var(--info);border:1px solid var(--info-b)}.b-real::before{background:var(--info)}
+.badge-new{background:linear-gradient(135deg,#7C3AED,#A855F7);color:#fff;font-size:9px;padding:2px 7px;border-radius:10px;margin-right:4px}
+.badge-soon{background:var(--up-bg);color:var(--upcoming);border:1px solid var(--up-b);font-size:9px;padding:2px 7px;border-radius:10px;margin-right:4px}
+.row-acts{display:flex;gap:4px}
+.empty{padding:60px 20px;text-align:center}
+.empty-icon{font-size:44px;margin-bottom:14px;opacity:.35}
+.empty-title{font-size:16px;font-weight:600;color:var(--navy);margin-bottom:6px}
+.empty-sub{font-size:13px;color:var(--ts)}
+.loader{padding:40px;text-align:center}
+.loader-ring{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--navy);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px}
+.loader p{font-size:13px;color:var(--ts)}
+.pagination{padding:14px 20px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--border2);flex-wrap:wrap;gap:10px}
+.page-info{font-size:12px;color:var(--ts)}
+.page-btns{display:flex;gap:4px}
+.page-btn{padding:5px 12px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:'DM Sans',sans-serif;color:var(--ts);cursor:pointer;transition:var(--ease);background:var(--white)}
+.page-btn:hover{border-color:var(--navy);color:var(--navy)}
+.page-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.page-btn:disabled{opacity:.35;cursor:not-allowed}
+
+/* ══ UPCOMING TIMELINE ══ */
+.upcoming-header{display:flex;align-items:center;gap:12px;padding:16px 20px;background:linear-gradient(135deg,var(--up-bg),#faf5ff);border-bottom:1px solid var(--up-b)}
+.upcoming-icon{font-size:28px}
+.upcoming-title{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;color:var(--upcoming)}
+.upcoming-sub{font-size:12px;color:var(--ts);margin-top:2px}
+.timeline{padding:20px}
+.timeline-day{margin-bottom:28px}
+.timeline-date{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--upcoming);margin-bottom:12px;display:flex;align-items:center;gap:10px}
+.timeline-date::after{content:'';flex:1;height:1px;background:var(--up-b)}
+.timeline-cards{display:flex;flex-direction:column;gap:10px}
+.tl-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;display:flex;gap:16px;align-items:flex-start;transition:var(--ease);cursor:pointer}
+.tl-card:hover{border-color:var(--upcoming);box-shadow:0 0 0 3px rgba(124,58,237,.06);transform:translateY(-1px)}
+.tl-card.urgent{border-left:4px solid var(--danger)}
+.tl-card.today{border-left:4px solid var(--gold)}
+.tl-time{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:var(--navy);min-width:54px;text-align:center;line-height:1}
+.tl-time-lbl{font-size:9px;color:var(--ts);text-align:center;margin-top:2px}
+.tl-divider{width:1px;background:var(--border2);align-self:stretch;margin:0 4px}
+.tl-body{flex:1;min-width:0}
+.tl-ref{font-family:monospace;font-size:11px;color:var(--navy3);font-weight:600}
+.tl-client{font-size:14px;font-weight:600;color:var(--text);margin:2px 0}
+.tl-route{font-size:12px;color:var(--ts);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tl-meta{display:flex;gap:10px;margin-top:6px;flex-wrap:wrap}
+.tl-meta span{font-size:11px;color:var(--ts)}
+.tl-acts{display:flex;gap:6px;flex-direction:column;align-items:flex-end}
+
+/* ══ MODAL ══ */
+.overlay{position:fixed;inset:0;background:rgba(13,33,55,.65);backdrop-filter:blur(5px);z-index:900;display:none;align-items:center;justify-content:center;padding:20px}
+.overlay.open{display:flex;animation:fadeUp .25s ease}
+.modal{background:var(--white);border-radius:var(--r-2xl);width:100%;max-width:640px;max-height:93vh;overflow-y:auto;box-shadow:0 24px 72px rgba(0,0,0,.3);animation:fadeUp .3s cubic-bezier(.34,1.56,.64,1)}
+.modal-hdr{background:linear-gradient(135deg,var(--navy),var(--navy3));padding:20px 24px;border-radius:var(--r-2xl) var(--r-2xl) 0 0;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.modal-ttl{font-size:14px;font-weight:600;color:#fff}
+.modal-id{font-family:monospace;font-size:12px;color:var(--gold);background:rgba(201,168,76,.15);padding:3px 10px;border-radius:10px}
+.modal-nav{display:flex;gap:6px;align-items:center}
+.modal-nav-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:6px;width:30px;height:30px;color:rgba(255,255,255,.7);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:var(--ease)}
+.modal-nav-btn:hover:not(:disabled){background:rgba(255,255,255,.2);color:#fff}
+.modal-nav-btn:disabled{opacity:.3;cursor:not-allowed}
+.modal-nav-pos{font-size:11px;color:rgba(255,255,255,.5);margin:0 4px}
+.modal-close{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:6px;width:30px;height:30px;color:rgba(255,255,255,.7);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:var(--ease)}
+.modal-close:hover{background:rgba(255,255,255,.25);color:#fff}
+.modal-body{padding:24px}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border2);display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;align-items:center;background:var(--surface);border-radius:0 0 var(--r-2xl) var(--r-2xl)}
+.modal-footer-right{display:flex;gap:8px;flex-wrap:wrap}
+.modal-msg{padding:10px 14px;border-radius:var(--r);font-size:12px;margin-bottom:14px;display:none}
+.modal-msg.success{background:var(--success-bg);color:var(--success);border:1px solid var(--success-b)}
+.modal-msg.error{background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-b)}
+.modal-msg.show{display:block}
+.modal-sec{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--navy);margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:6px}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.info-item{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:12px;transition:var(--ease)}
+.info-item:hover{border-color:var(--border)}
+.info-item.full{grid-column:1/-1}
+.info-label{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ts);margin-bottom:3px}
+.info-value{font-size:13px;color:var(--text);font-weight:500;word-break:break-word}
+.info-value.gold{color:var(--gold);font-weight:700;font-size:18px;font-family:'Cormorant Garamond',serif}
+.m-field{margin-bottom:12px}
+.m-field label{display:block;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ts);margin-bottom:5px}
+.m-inp,.m-sel,.m-ta{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--white);transition:var(--ease)}
+.m-inp:focus,.m-sel:focus,.m-ta:focus{outline:none;border-color:var(--navy3);box-shadow:0 0 0 3px rgba(27,79,114,.08)}
+.m-ta{resize:vertical;min-height:68px}
+
+/* Calendrier */
+.cal-box{background:var(--up-bg);border:1px solid var(--up-b);border-radius:var(--r-lg);padding:14px;margin-bottom:14px}
+.cal-ttl{font-size:13px;font-weight:700;color:var(--upcoming);display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.cal-btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn-cal{padding:7px 14px;border-radius:var(--r);border:1px solid var(--up-b);background:var(--white);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:var(--upcoming);cursor:pointer;transition:var(--ease);display:flex;align-items:center;gap:5px}
+.btn-cal:hover{background:var(--upcoming);color:#fff;border-color:var(--upcoming)}
+
+/* WhatsApp Hôtel — NOUVEAU v7 */
+.hotel-wa-box{background:var(--hotel-wa-bg);border:1px solid var(--hotel-wa-b);border-radius:var(--r-lg);padding:14px;margin-bottom:14px}
+.hotel-wa-ttl{font-size:13px;font-weight:700;color:var(--hotel-wa);display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.hotel-wa-desc{font-size:11px;color:var(--ts);margin-bottom:10px;line-height:1.6}
+.hotel-wa-btns{display:flex;gap:8px;flex-wrap:wrap}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;border-left:4px solid var(--gold);padding:14px 20px;border-radius:var(--r-lg);font-size:13px;font-weight:500;box-shadow:var(--shadow-lg);z-index:9999;transform:translateX(160%);transition:transform .35s cubic-bezier(.34,1.56,.64,1);max-width:340px;line-height:1.5}
+.toast.show{transform:translateX(0)}
+.toast.success{border-left-color:var(--success)}.toast.error{border-left-color:var(--danger)}.toast.wa{border-left-color:var(--whatsapp)}.toast.hotel-wa{border-left-color:var(--hotel-wa)}.toast.notif{border-left-color:#7C3AED}
+
+/* Info bar session */
+.session-bar{background:linear-gradient(90deg,rgba(201,168,76,.08),rgba(201,168,76,.04));border-bottom:1px solid var(--gold-b);padding:6px 24px;font-size:11px;color:var(--ts);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.session-bar strong{color:var(--navy);font-weight:600}
+.notif-lbl{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;color:var(--ts);user-select:none;margin:0}
+.notif-lbl input{accent-color:var(--navy3);width:15px;height:15px;margin:0;flex-shrink:0}
+html[data-theme="dark"] .notif-lbl{color:var(--ts)}
+
+/* Thème clair (défaut) / foncé — ☀️ 🌙 */
+.theme-corner-login{position:absolute;top:16px;left:16px;z-index:12}
+.theme-row{display:flex;align-items:center;gap:8px}
+.theme-seg{display:inline-flex;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:3px;gap:2px}
+html[data-theme="dark"] .header .theme-seg{background:rgba(0,0,0,.22);border-color:rgba(255,255,255,.14)}
+.theme-btn{width:36px;height:32px;border:none;border-radius:999px;background:transparent;cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;transition:var(--ease);color:rgba(255,255,255,.65)}
+.theme-corner-login .theme-btn,.header .theme-btn{color:rgba(255,255,255,.7)}
+.theme-btn:hover{color:var(--gold)}
+.theme-btn.on{background:rgba(201,168,76,.2);color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold-b)}
+.header-theme-inline{margin-right:4px}
+html[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#070b11;--surface:#141c2a;--white:#1a2434;
+  --border:#3d4d68;--border2:#2a3548;
+  --text:#f4f7fc;--tm:#e2e9f3;--ts:#c5cedd;--tl:#9aa8bc;
+  --shadow:0 2px 12px rgba(0,0,0,.45);--shadow-lg:0 14px 44px rgba(0,0,0,.55);
+  --danger-bg:#4a1a1a;--danger-b:#a04545;--success-bg:#123d2d;--success-b:#2a8f65;
+  --warn-bg:#4a3a12;--warn-b:#8a7020;--info-bg:#152a42;--info-b:#2d5a88;
+  --up-bg:#2a2240;--up-b:#6b52a8;
+  --hotel-wa-bg:rgba(15,92,46,.22);--wa-bg:rgba(37,211,102,.14);
+  --gold:#d4b55c;--gold-b:rgba(212,181,92,.5);--gold-s:rgba(212,181,92,.16);
+}
+html[data-theme="dark"] .login-box{color:var(--text)}
+html[data-theme="dark"] .login-title{color:var(--text)}
+html[data-theme="dark"] .login-brand{color:var(--gold)}
+html[data-theme="dark"] .login-sub,
+html[data-theme="dark"] .field label{color:var(--ts)}
+html[data-theme="dark"] .field input{background:#101820;border-color:var(--border);color:var(--text)}
+html[data-theme="dark"] .toggle-link{color:var(--gold)}
+html[data-theme="dark"] .step-label,
+html[data-theme="dark"] .code-hint{color:var(--ts)}
+html[data-theme="dark"] .card{background:var(--white);border-color:var(--border)}
+html[data-theme="dark"] .card-ttl,
+html[data-theme="dark"] .stat-val{color:#f2f6fc}
+html[data-theme="dark"] .stat-lbl{color:#b8c5d8}
+html[data-theme="dark"] .tabs-bar{background:var(--surface);border-bottom-color:var(--border)}
+html[data-theme="dark"] .tab-btn{color:var(--ts)}
+html[data-theme="dark"] .tab-btn:hover{color:var(--text)}
+html[data-theme="dark"] .tab-btn.active{color:var(--gold);border-bottom-color:var(--gold)}
+html[data-theme="dark"] .tab-btn .tab-count{color:var(--gold);border-color:var(--gold-b)}
+html[data-theme="dark"] .tab-btn.active .tab-count{background:var(--gold);color:#0d1520;border-color:var(--gold)}
+html[data-theme="dark"] .tbl thead th{color:#f0d78c;text-shadow:0 1px 2px rgba(0,0,0,.35)}
+html[data-theme="dark"] tbody td{color:var(--tm)}
+html[data-theme="dark"] tbody tr:hover{background:#1e2a3d}
+html[data-theme="dark"] .tl-card{background:var(--surface);border-color:var(--border)}
+html[data-theme="dark"] .tl-time{color:var(--text)}
+html[data-theme="dark"] .tl-time-lbl,
+html[data-theme="dark"] .tl-route,
+html[data-theme="dark"] .tl-meta span,
+html[data-theme="dark"] .upcoming-sub{color:var(--ts)}
+html[data-theme="dark"] .empty-title{color:var(--text)}
+html[data-theme="dark"] .empty-sub,
+html[data-theme="dark"] .loader p,
+html[data-theme="dark"] .page-info{color:var(--ts)}
+html[data-theme="dark"] .empty-icon{opacity:.88}
+html[data-theme="dark"] .loader-ring{border-color:var(--border);border-top-color:var(--gold)}
+html[data-theme="dark"] .page-btn{color:var(--tm);background:var(--surface);border-color:var(--border)}
+html[data-theme="dark"] .page-btn:hover{color:var(--gold);border-color:var(--gold-b)}
+html[data-theme="dark"] .page-btn.active{background:var(--gold);color:#0d1520;border-color:var(--gold)}
+html[data-theme="dark"] .filters{background:rgba(20,28,42,.95);border-color:var(--border2)}
+html[data-theme="dark"] .fg-f label{color:#d1dae8;font-weight:700}
+html[data-theme="dark"] .f-inp{color:var(--text)}
+html[data-theme="dark"] .field label,
+html[data-theme="dark"] .m-field label,
+html[data-theme="dark"] .info-label{color:#d1dae8;font-weight:700}
+html[data-theme="dark"] .stat-lbl{color:#c5cedd}
+html[data-theme="dark"] .stat-card{border-color:var(--border)}
+html[data-theme="dark"] .stat-card:hover{border-color:rgba(212,181,92,.35)}
+html[data-theme="dark"] .stat-card.active-filter{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,168,76,.22)}
+html[data-theme="dark"] .tab-btn{color:#c5cedd}
+html[data-theme="dark"] .tab-btn.active{color:var(--gold)}
+html[data-theme="dark"] .page-info,
+html[data-theme="dark"] .loader p,
+html[data-theme="dark"] .empty-sub,
+html[data-theme="dark"] .session-bar{color:var(--ts)}
+html[data-theme="dark"] .session-bar strong{color:var(--gold)}
+html[data-theme="dark"] .btn-ghost{color:#dce4ef;border-color:#5a6b85;background:rgba(16,24,32,.4)}
+html[data-theme="dark"] .btn-ghost:hover{color:var(--gold);border-color:var(--gold-b);background:rgba(212,181,92,.1)}
+html[data-theme="dark"] .modal{background:var(--white);color:var(--text);border:1px solid var(--border)}
+html[data-theme="dark"] .modal-body{color:var(--text)}
+html[data-theme="dark"] .modal-sec{color:var(--gold);border-bottom-color:var(--border2)}
+html[data-theme="dark"] .m-inp,.m-sel,.m-ta,.f-inp{background:#101820;border-color:var(--border);color:var(--text)}
+html[data-theme="dark"] .info-item{background:var(--surface);border-color:var(--border)}
+html[data-theme="dark"] .info-value{color:var(--text)}
+html[data-theme="dark"] .btn-cal{background:var(--surface);border-color:var(--border);color:#c4d9f5}
+html[data-theme="dark"] .session-bar{background:linear-gradient(90deg,rgba(201,168,76,.14),rgba(201,168,76,.08));color:var(--ts)}
+html[data-theme="dark"] .cal-box{background:var(--up-bg);border-color:var(--up-b)}
+html[data-theme="dark"] .cal-ttl{color:#c4a8ff}
+/* Próximas Transferências — contraste lisible (thème foncé) */
+html[data-theme="dark"] #tab-upcoming .upcoming-header{
+  background:linear-gradient(135deg,var(--up-bg),#1a1428);
+  border-bottom-color:var(--up-b);
+}
+html[data-theme="dark"] #tab-upcoming .upcoming-title,
+html[data-theme="dark"] #tab-upcoming .timeline-date{
+  color:#e9d5ff;
+  text-shadow:0 1px 2px rgba(0,0,0,.35);
+}
+html[data-theme="dark"] #tab-upcoming .upcoming-sub{
+  color:#e8edf5;
+  font-weight:500;
+}
+html[data-theme="dark"] #tab-upcoming .tl-ref{
+  color:#b8c9f0;
+}
+html[data-theme="dark"] #tab-upcoming .tl-route,
+html[data-theme="dark"] #tab-upcoming .tl-meta span,
+html[data-theme="dark"] #tab-upcoming .tl-time-lbl{
+  color:#d1dce8;
+}
+html[data-theme="dark"] .hotel-wa-box{background:rgba(15,92,46,.18);border-color:var(--hotel-wa-b)}
+html[data-theme="dark"] .hotel-wa-desc{color:var(--ts)}
+/* Langues en-tête (portail agences) — lisibilité thème foncé, pastille active inchangée (or + lettres foncées) */
+html[data-theme="dark"] .header .lang-app .lp:not(.active){
+  color:rgba(255,255,255,.92);
+  border-color:rgba(255,255,255,.4);
+  font-weight:800;
+  text-shadow:0 1px 2px rgba(0,0,0,.35);
+}
+html[data-theme="dark"] .header .lang-app .lp:not(.active):hover{
+  color:var(--gold);
+  border-color:var(--gold-b);
+}
+html[data-theme="dark"] .header .lang-app .lp.active{
+  background:var(--gold);
+  color:#0d1520;
+  border-color:var(--gold);
+  font-weight:800;
+  text-shadow:none;
+}
+.wa-prev-lang-sel{min-width:220px;font-weight:600}
+
+/* ══ Téléphone / petit écran — lisibilité + cibles tactiles (min ~44px) ══ */
+@media(max-width:768px){
+  #app-screen,#login-screen{padding-left:max(0px, env(safe-area-inset-left));padding-right:max(0px, env(safe-area-inset-right))}
+  /* Espace sous les boutons thème (coin) pour ne pas recouvrir la liste langue */
+  #login-screen{padding-top:max(44px, calc(env(safe-area-inset-top) + 28px));padding-bottom:max(12px, env(safe-area-inset-bottom))}
+  /* Langues : une liste déroulante (plus lisible que 4 boutons en ligne) */
+  #login-screen .lang-top{
+    position:static;
+    top:auto;
+    right:auto;
+    width:100%;
+    max-width:420px;
+    margin:0 auto 14px;
+    padding:0 max(4px, env(safe-area-inset-left)) 0 max(4px, env(safe-area-inset-right));
+    display:block;
+  }
+  #login-screen .lang-top .lp{display:none!important;}
+  /* Liste langue : couleurs fixes (le thème foncé redéfinit --white/--navy et grisait tout) */
+  #login-screen .lang-top .lang-select-mobile{
+    display:block!important;
+    width:100%;
+    min-height:48px;
+    padding:12px 14px;
+    font-size:16px;
+    font-weight:700;
+    letter-spacing:.02em;
+    color:#0d2137!important;
+    border:2px solid #c9a84c!important;
+    border-radius:var(--r-lg);
+    box-shadow:0 6px 20px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.9);
+    -webkit-appearance:none;
+    appearance:none;
+    color-scheme:light;
+    background-color:#ffffff!important;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%231B4F72' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 12px center;
+    background-size:20px 20px;
+    padding-right:42px!important;
+  }
+  #login-screen .lang-top .lang-select-mobile:focus{
+    outline:none;
+    border-color:#1b4f72!important;
+    box-shadow:0 0 0 3px rgba(201,168,76,.45),0 8px 24px rgba(0,0,0,.25);
+  }
+  #login-screen .lang-top .lang-select-mobile option{
+    background:#fff!important;
+    color:#0d2137!important;
+    font-weight:600;
+    padding:10px;
+  }
+  .header-right .lang-app .lp{display:none!important;}
+  .header-right .lang-app .lang-select-mobile{
+    display:block!important;
+    width:100%;
+    min-width:0;
+    max-width:100%;
+    min-height:44px;
+    padding:10px 12px;
+    font-size:16px;
+    font-weight:700;
+    letter-spacing:.02em;
+    color:#0d2137!important;
+    border:2px solid #c9a84c!important;
+    border-radius:var(--r-lg);
+    box-shadow:0 4px 14px rgba(0,0,0,.2),inset 0 1px 0 #fff;
+    -webkit-appearance:none;
+    appearance:none;
+    color-scheme:light;
+    background-color:#ffffff!important;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%230D2137' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 10px center;
+    background-size:18px 18px;
+    padding-right:38px!important;
+  }
+  .header-right .lang-app .lang-select-mobile:focus{
+    outline:none;
+    border-color:#1b4f72!important;
+    box-shadow:0 0 0 3px rgba(201,168,76,.5),0 6px 18px rgba(0,0,0,.25);
+  }
+  .header-right .lang-app .lang-select-mobile option{
+    background:#fff!important;
+    color:#0d2137!important;
+    font-weight:600;
+  }
+  /* Thème foncé : ne pas appliquer --white/--text aux listes langue (inchangé visuellement) */
+  html[data-theme="dark"] #login-screen .lang-top .lang-select-mobile,
+  html[data-theme="dark"] .header-right .lang-app .lang-select-mobile{
+    background-color:#ffffff!important;
+    color:#0d2137!important;
+    border-color:#d4b55c!important;
+  }
+  html[data-theme="dark"] #login-screen .lang-top .lang-select-mobile option,
+  html[data-theme="dark"] .header-right .lang-app .lang-select-mobile option{
+    background:#ffffff!important;
+    color:#0d2137!important;
+  }
+  /* Langue + Sair visibles ensemble : 2e ligne pleine largeur en grille (plus de scroll horizontal masquant Sair) */
+  .header-right .lang-app{
+    display:flex;
+    align-items:center;
+    min-width:0;
+    width:100%;
+    max-width:none;
+    margin-inline-end:0;
+    padding:4px 6px;
+    background:#0d2137;
+    border-radius:14px;
+    box-shadow:0 0 0 1px rgba(201,168,76,.45);
+    position:relative;
+    z-index:1;
+  }
+  .theme-corner-login{top:max(12px, env(safe-area-inset-top));left:max(12px, env(safe-area-inset-left))}
+  /* Thème ☀️ / 🌙 — cibles larges + espace (évite chevauchement au doigt) */
+  #login-screen .theme-corner-login .theme-seg{
+    padding:6px 8px;
+    gap:10px;
+    min-height:54px;
+    align-items:center;
+    box-sizing:border-box;
+  }
+  #login-screen .theme-corner-login .theme-btn{
+    flex-shrink:0;
+    min-width:48px!important;
+    min-height:48px!important;
+    width:48px!important;
+    height:48px!important;
+    padding:0!important;
+    font-size:22px!important;
+    line-height:1!important;
+    touch-action:manipulation;
+  }
+  .header .theme-row,
+  .header .header-theme-inline{flex-shrink:0;margin-right:6px}
+  .header .theme-seg{
+    padding:6px 8px;
+    gap:10px;
+    min-height:52px;
+    align-items:center;
+    box-sizing:border-box;
+  }
+  .header .theme-btn{
+    flex-shrink:0;
+    min-width:48px!important;
+    min-height:48px!important;
+    width:48px!important;
+    height:48px!important;
+    padding:0!important;
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    font-size:22px!important;
+    line-height:1!important;
+    touch-action:manipulation;
+  }
+  .login-box{padding:28px 20px}
+  .btn-primary{min-height:48px;touch-action:manipulation}
+  .toggle-link{padding:10px 4px;min-height:44px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center}
+  .header{
+    padding:max(6px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 8px max(10px, env(safe-area-inset-left));
+    height:auto;
+    min-height:56px;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:flex-start;
+  }
+  .header-left{min-width:0;flex:0 1 auto}
+  .header-right{
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr) minmax(0,88px) auto;
+    align-items:center;
+    gap:8px;
+    width:100%;
+    flex:1 1 100%;
+    min-width:0;
+    max-width:100%;
+    overflow:visible;
+    padding:4px 0 2px;
+  }
+  .header-right .theme-row,
+  .header-right .header-theme-inline{margin-right:0}
+  .ag-badge{
+    max-width:88px;
+    min-width:0;
+    overflow:hidden;
+  }
+  .ag-badge span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .btn-hdr{min-width:44px;min-height:44px;padding:8px 10px;display:inline-flex;align-items:center;justify-content:center;touch-action:manipulation}
+  /* Sair : dans la grille (plus de sticky) pour rester visible à côté de la langue */
+  .header-right .btn-hdr{
+    position:relative;
+    right:auto;
+    z-index:1;
+    flex-shrink:0;
+    align-self:center;
+    margin-left:0;
+    padding-left:10px;
+    padding-right:10px;
+    background:var(--navy);
+    box-shadow:none;
+    color:#fff;
+    border-color:rgba(255,255,255,.45);
+    font-weight:700;
+    letter-spacing:.04em;
+  }
+  .session-bar{padding:8px max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left));font-size:12px}
+  /* Header sur 2 lignes : compenser la hauteur pour l’ancrage des onglets */
+  .tabs-bar{
+    top:114px;
+    padding:0 max(10px, env(safe-area-inset-right)) 0 max(10px, env(safe-area-inset-left));
+    -webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;
+  }
+  .tab-btn{
+    padding:14px 16px;min-height:48px;flex-shrink:0;scroll-snap-align:start;
+    touch-action:manipulation;
+  }
+  .main{padding:12px;padding-bottom:max(20px, env(safe-area-inset-bottom))}
+  .stats-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+  .stat-card{padding:14px;min-height:72px}
+  .stat-val{font-size:24px}
+  .card-hdr{flex-direction:column;align-items:stretch}
+  .hdr-acts{width:100%;justify-content:stretch;gap:8px}
+  .hdr-acts .btn{flex:1;min-height:44px;justify-content:center;touch-action:manipulation;padding:10px 8px}
+  .filters{padding:12px 14px;gap:12px}
+  .fg-f{width:100%}
+  .f-inp,.field input,.m-inp,.m-sel,.m-ta{font-size:16px}
+  .filters .btn-navy,.filters .btn-ghost{min-height:44px;padding:10px 14px;touch-action:manipulation}
+  .tbl-wrap{
+    overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;
+    margin:0 -4px;padding:0 4px;touch-action:pan-x pan-y;
+  }
+  table{min-width:720px}
+  thead th{padding:12px 10px;font-size:11px}
+  td{padding:12px 10px}
+  .row-acts{flex-wrap:wrap;gap:8px}
+  .row-acts .btn{min-width:44px;min-height:44px;padding:10px 12px;touch-action:manipulation}
+  .pagination{
+    flex-direction:column;align-items:stretch;gap:12px;
+    padding:14px max(12px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  }
+  .page-info{text-align:center}
+  .page-btns{justify-content:center;flex-wrap:wrap;gap:6px}
+  .page-btn{min-width:44px;min-height:44px;padding:10px 14px;touch-action:manipulation}
+  .info-grid{grid-template-columns:1fr}
+  .tl-card{flex-direction:column}
+  .tl-divider{display:none}
+  .tl-acts{align-self:stretch;text-align:center}
+  .timeline{padding:16px 12px;padding-bottom:max(20px, env(safe-area-inset-bottom))}
+  .upcoming-header{padding:14px 16px}
+  .overlay{
+    padding:max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+    align-items:flex-end;
+  }
+  .modal{
+    max-height:min(100dvh, 100vh);border-radius:var(--r-xl) var(--r-xl) 0 0;
+    position:fixed;bottom:0;left:0;right:0;max-width:100%;
+    padding-bottom:max(12px, env(safe-area-inset-bottom));
+  }
+  .modal-hdr{padding:16px 16px}
+  .modal-body{padding:16px}
+  .modal-footer{
+    flex-direction:column;align-items:stretch;gap:10px;
+    padding:14px 16px;padding-bottom:max(14px, env(safe-area-inset-bottom));
+  }
+  .modal-footer-right{width:100%;flex-direction:column;gap:8px}
+  .modal-footer .btn,.modal-footer-right .btn{width:100%;min-height:48px;justify-content:center;touch-action:manipulation}
+  .modal-nav-btn,.modal-close{min-width:44px;min-height:44px;touch-action:manipulation}
+  .cal-btns,.hotel-wa-btns{flex-direction:column}
+  .btn-cal{width:100%;min-height:48px;justify-content:center;touch-action:manipulation}
+  .hotel-wa-btns .btn{width:100%;min-height:48px;justify-content:center}
+  .wa-prev-lang-sel{min-width:0;width:100%}
+  .toast{
+    left:max(12px, env(safe-area-inset-left));right:max(12px, env(safe-area-inset-right));
+    bottom:max(16px, env(safe-area-inset-bottom));max-width:none;
+  }
+}
+@media(max-width:480px){
+  .header-title{display:none}
+  .stats-grid{grid-template-columns:1fr;gap:10px}
+  .filters{flex-direction:column;align-items:stretch}
+  .f-inp{min-width:100%;width:100%}
+  .filters .fg-f .f-inp,.filters .fg-f select.f-inp{width:100%}
+  .filters .btn-navy,.filters .btn-ghost{width:100%;align-self:stretch!important}
+  .hdr-acts .btn span{display:none}
+  .hdr-acts .btn{font-size:18px}
+}
+</style>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="NH Agencias">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+</head>
+<body>
+
+<!-- Banner erreur configuration -->
+<div id="config-banner">
+  ⚠️ URL de l'API non configurée — Ouvrir ce fichier HTML et remplacer <code>https://script.google.com/macros/s/AKfycbxvkJFzutfJIZkC2tXdroFawnha_vqQ9ubB0wYM7rflxWNrMIIdxoPIHcU-QqNdQgLT4A/exec</code> par l'URL de votre déploiement Apps Script
+</div>
+
+<!-- ══ LOGIN ══ -->
+<div id="login-screen" class="screen on">
+  <div class="lang-top">
+    <button type="button" class="lp active" onclick="setLang('PT','login')">PT</button>
+    <button type="button" class="lp" onclick="setLang('EN','login')">EN</button>
+    <button type="button" class="lp" onclick="setLang('FR','login')">FR</button>
+    <button type="button" class="lp" onclick="setLang('ES','login')">ES</button>
+    <select id="lang-login-sel" class="lang-select-mobile" aria-label="Idioma" onchange="setLang(this.value,'login')">
+      <option value="PT">Português (PT)</option>
+      <option value="EN">English (EN)</option>
+      <option value="FR">Français (FR)</option>
+      <option value="ES">Español (ES)</option>
+    </select>
+  </div>
+  <div class="theme-corner-login">
+    <div class="theme-seg" role="group" aria-label="Thème">
+      <button type="button" class="theme-btn on" data-theme-pick="light" aria-pressed="true" title="Clair">☀️</button>
+      <button type="button" class="theme-btn" data-theme-pick="dark" aria-pressed="false" title="Foncé">🌙</button>
+    </div>
+  </div>
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-emblem"><svg viewBox="0 0 24 24"><path d="M12 2L3 7v6c0 5.25 3.75 10.15 9 11.25C17.25 23.15 21 18.25 21 13V7L12 2z"/></svg></div>
+      <div class="login-brand">NH Collection Lisboa Liberdade</div>
+      <div class="login-sub">Lisboa · Portugal</div>
+    </div>
+    <div class="login-divider"></div>
+
+    <!-- Step 1 : Login -->
+    <div id="step-login">
+      <div class="login-title" id="lbl-login-title">🔐 Portal Agências</div>
+      <div class="msg-box err" id="login-err"></div>
+      <div class="field"><label id="lbl-ag-id">Identificador</label>
+        <input type="text" id="ag-id" placeholder="AGN001" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div class="field"><label id="lbl-ag-pass">Palavra-passe</label>
+        <input type="password" id="ag-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button class="btn-primary" id="login-btn" onclick="doLogin()">
+        <div class="sp"></div><span class="btn-t" id="lbl-login-btn">Entrar</span>
+      </button>
+      <div class="toggle-link" onclick="showReset()">🔑 <span id="lbl-reset-link">Alterar / Recuperar palavra-passe</span></div>
+    </div>
+
+    <!-- Step 2 : Demander code reset -->
+    <div id="step-reset1" style="display:none">
+      <div class="step-indicator">
+        <div class="step-dot active" id="sd1"></div>
+        <div class="step-dot" id="sd2"></div>
+        <div class="step-dot" id="sd3"></div>
+      </div>
+      <div class="login-title" id="lbl-r1-title">🔑 Recuperar Palavra-passe</div>
+      <div class="step-label" id="lbl-r1-sub">Introduza o seu identificador e o email registado</div>
+      <div class="msg-box err" id="r1-err"></div>
+      <div class="field"><label id="lbl-r1-id">Identificador</label>
+        <input type="text" id="r1-id" placeholder="AGN001">
+      </div>
+      <div class="field"><label id="lbl-r1-email">Email registado</label>
+        <input type="email" id="r1-email" placeholder="email@agencia.pt">
+      </div>
+      <button class="btn-primary" id="r1-btn" onclick="doDemandarCodigo()">
+        <div class="sp"></div><span class="btn-t" id="lbl-r1-btn">Enviar Código</span>
+      </button>
+      <div class="toggle-link" onclick="showLogin()">← <span id="lbl-back1">Voltar ao login</span></div>
+    </div>
+
+    <!-- Step 3 : Confirmar novo password -->
+    <div id="step-reset2" style="display:none">
+      <div class="step-indicator">
+        <div class="step-dot done"></div>
+        <div class="step-dot active"></div>
+        <div class="step-dot" id="sd3b"></div>
+      </div>
+      <div class="login-title" id="lbl-r2-title">📧 Verificar Código</div>
+      <div class="step-label" id="lbl-r2-sub">Código enviado para o seu email</div>
+      <div class="msg-box warn" id="r2-warn"></div>
+      <div class="msg-box err" id="r2-err"></div>
+      <div class="msg-box ok" id="r2-ok"></div>
+      <div class="field"><label id="lbl-r2-code">Código de verificação (6 dígitos)</label>
+        <input type="text" id="r2-code" placeholder="123456" maxlength="6" style="letter-spacing:.25em;font-size:20px;font-weight:700;text-align:center">
+      </div>
+      <div class="field"><label id="lbl-r2-new">Nova palavra-passe (min. 8 car.)</label>
+        <input type="password" id="r2-new" placeholder="••••••••">
+      </div>
+      <div class="field"><label id="lbl-r2-cf">Confirmar nova palavra-passe</label>
+        <input type="password" id="r2-cf" placeholder="••••••••">
+      </div>
+      <button class="btn-primary" id="r2-btn" onclick="doConfirmarMDP()">
+        <div class="sp"></div><span class="btn-t" id="lbl-r2-btn">Alterar Palavra-passe</span>
+      </button>
+      <div class="code-hint" id="lbl-r2-hint">O código é válido durante 15 minutos</div>
+      <div class="toggle-link" onclick="showReset()">← <span id="lbl-back2">Pedir novo código</span></div>
+    </div>
+
+    <div class="login-footer" id="lf">NH Collection Lisboa Liberdade<br>Solution Nhalabene</div>
+  </div>
+</div>
+
+<!-- ══ APPLICATION ══ -->
+<div id="app-screen" class="screen">
+  <div class="header">
+    <div class="header-left">
+      <div class="header-logo"><svg viewBox="0 0 24 24"><path d="M12 2L3 7v6c0 5.25 3.75 10.15 9 11.25C17.25 23.15 21 18.25 21 13V7L12 2z"/></svg></div>
+      <div class="header-title">NH Liberdade · <span id="header-agency-name">Agências</span></div>
+    </div>
+    <div class="header-right">
+      <div class="theme-row header-theme-inline">
+        <div class="theme-seg" role="group" aria-label="Thème">
+          <button type="button" class="theme-btn on" data-theme-pick="light" aria-pressed="true" title="Clair">☀️</button>
+          <button type="button" class="theme-btn" data-theme-pick="dark" aria-pressed="false" title="Foncé">🌙</button>
+        </div>
+      </div>
+      <div class="lang-app">
+        <button type="button" class="lp active" onclick="setLang('PT','app')">PT</button>
+        <button type="button" class="lp" onclick="setLang('EN','app')">EN</button>
+        <button type="button" class="lp" onclick="setLang('FR','app')">FR</button>
+        <button type="button" class="lp" onclick="setLang('ES','app')">ES</button>
+        <select id="lang-app-sel" class="lang-select-mobile" aria-label="Idioma" onchange="setLang(this.value,'app')">
+          <option value="PT">Português (PT)</option>
+          <option value="EN">English (EN)</option>
+          <option value="FR">Français (FR)</option>
+          <option value="ES">Español (ES)</option>
+        </select>
+      </div>
+      <div class="ag-badge"><span class="dot-ok"></span><span id="ag-name-display">Agência</span></div>
+      <button class="btn-hdr" onclick="doLogout()" id="lbl-logout">⎋ Sair</button>
+    </div>
+  </div>
+
+  <!-- Session bar -->
+  <div class="session-bar" id="session-bar">
+    <span>✅ Sessão ativa · <strong id="sb-agency">—</strong></span>
+    <label class="notif-lbl">
+      <input type="checkbox" id="notif-enable" autocomplete="off" onchange="onNotifToggleChange()">
+      <span id="lbl-notif-toggle">Alertas de novas reservas</span>
+    </label>
+    <span id="sb-time" style="font-size:10px;opacity:.7"></span>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs-bar">
+    <button class="tab-btn active" id="tab-btn-all" onclick="switchTab('all')">
+      📋 <span id="lbl-tab-all">Todas as Reservas</span>
+      <span class="tab-count" id="tc-all">0</span>
+    </button>
+    <button class="tab-btn" id="tab-btn-upcoming" onclick="switchTab('upcoming')">
+      🗓 <span id="lbl-tab-upcoming">Próximas Transferências</span>
+      <span class="tab-count" id="tc-upcoming">0</span>
+    </button>
+  </div>
+
+  <div class="main">
+    <!-- Stats -->
+    <div class="stats-grid fadein">
+      <div class="stat-card" onclick="filterByStatCard('all')"><div class="stat-icon si-b">📋</div><div><div class="stat-val" id="s-total">—</div><div class="stat-lbl" id="lbl-s-total">Total</div></div></div>
+      <div class="stat-card" onclick="filterByStatCard('pendente')"><div class="stat-icon si-y">⏳</div><div><div class="stat-val" id="s-pend">—</div><div class="stat-lbl" id="lbl-s-pend">Pendentes</div></div></div>
+      <div class="stat-card" onclick="filterByStatCard('confirmado')"><div class="stat-icon si-g">✅</div><div><div class="stat-val" id="s-conf">—</div><div class="stat-lbl" id="lbl-s-conf">Confirmadas</div></div></div>
+      <div class="stat-card" onclick="filterByStatCard('upcoming')"><div class="stat-icon si-p">🗓</div><div><div class="stat-val" id="s-upcoming">—</div><div class="stat-lbl" id="lbl-s-upcoming">A Realizar</div></div></div>
+    </div>
+
+    <!-- TAB: Toutes les réservations -->
+    <div id="tab-all" class="tab-panel active fadein">
+      <div class="card">
+        <div class="card-hdr">
+          <div class="card-ttl" id="lbl-card-ttl">Reservas Atribuídas</div>
+          <div class="hdr-acts">
+            <button class="btn btn-ghost btn-sm" onclick="exportExcel()">📊 <span id="lbl-exp-excel">Excel</span></button>
+            <button class="btn btn-ghost btn-sm" onclick="exportPDF()">🖨️ <span id="lbl-exp-pdf">PDF</span></button>
+            <button class="btn btn-navy btn-sm" onclick="loadReservas()">↻ <span id="lbl-refresh-txt">Atualizar</span></button>
+          </div>
+        </div>
+        <div class="filters">
+          <div class="fg-f">
+            <label id="lbl-f-statut">Estatuto</label>
+            <select class="f-inp" id="f-statut">
+              <option value="" id="f-all">Todos</option>
+              <option value="pendente" id="f-pend">⏳ Pendente</option>
+              <option value="confirmado" id="f-conf">✅ Confirmado</option>
+              <option value="cancelado" id="f-canc">❌ Cancelado</option>
+              <option value="realizado" id="f-real">🏁 Realizado</option>
+            </select>
+          </div>
+          <div class="fg-f"><label id="lbl-f-ds">Data início</label><input type="date" class="f-inp" id="f-ds"></div>
+          <div class="fg-f"><label id="lbl-f-de">Data fim</label><input type="date" class="f-inp" id="f-de"></div>
+          <div class="fg-f">
+            <label id="lbl-f-dest">Destino</label>
+            <select class="f-inp" id="f-dest">
+              <option value="" id="f-dest-all">Todos</option>
+              <option value="Airport">✈ Aeroporto</option>
+              <option value="Oriente">🚄 Oriente</option>
+              <option value="Hotels">🏨 Hotel</option>
+            </select>
+          </div>
+          <button class="btn btn-navy btn-sm" style="align-self:flex-end" onclick="applyFilters()" id="lbl-btn-filter">Filtrar</button>
+          <button class="btn btn-ghost btn-sm" style="align-self:flex-end" onclick="resetFilters()" id="lbl-btn-reset">Limpar</button>
+        </div>
+        <div class="tbl-wrap" id="tbl-wrap">
+          <div class="loader"><div class="loader-ring"></div><p id="lbl-loading">A carregar…</p></div>
+        </div>
+        <div class="pagination" id="pagination" style="display:none">
+          <div class="page-info" id="page-info"></div>
+          <div class="page-btns" id="page-btns"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: Prochains transfers -->
+    <div id="tab-upcoming" class="tab-panel fadein">
+      <div class="card">
+        <div class="upcoming-header">
+          <div class="upcoming-icon">🗓</div>
+          <div>
+            <div class="upcoming-title" id="lbl-upcoming-title">Próximas Transferências</div>
+            <div class="upcoming-sub" id="lbl-upcoming-sub">Transfers futuros não realizados — por ordem cronológica</div>
+          </div>
+        </div>
+        <div class="timeline" id="timeline-wrap">
+          <div class="loader"><div class="loader-ring"></div><p>A carregar…</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL DÉTAIL ══ -->
+<div class="overlay" id="ov-modal" onclick="closeOv('ov-modal',event)">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div>
+        <div class="modal-ttl" id="lbl-modal-ttl">Detalhes da Reserva</div>
+        <div class="modal-id" id="m-id">—</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="modal-nav">
+          <button class="modal-nav-btn" id="btn-nav-prev" onclick="navModal(-1)" title="Anterior">‹</button>
+          <span class="modal-nav-pos" id="modal-nav-pos">1/1</span>
+          <button class="modal-nav-btn" id="btn-nav-next" onclick="navModal(1)" title="Seguinte">›</button>
+        </div>
+        <button class="modal-close" onclick="closeModal('ov-modal')">✕</button>
+      </div>
+    </div>
+
+    <div class="modal-body">
+      <div class="modal-msg" id="m-msg"></div>
+
+      <!-- Info grid -->
+      <div class="info-grid" id="m-grid"></div>
+
+      <!-- Calendrier -->
+      <div class="cal-box" id="cal-box">
+        <div class="cal-ttl">📅 <span id="lbl-cal-ttl">Adicionar ao Calendário</span></div>
+        <div class="cal-btns">
+          <button class="btn-cal" onclick="addToGoogleCalendar()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 18H4V8h16v13z"/></svg>
+            Google Calendar
+          </button>
+          <button class="btn-cal" onclick="addToIcal()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>
+            iCal / Outlook
+          </button>
+        </div>
+      </div>
+
+      <!-- ══ WA HÔTEL — Confirmer à l'hôtel ══ -->
+      <div class="hotel-wa-box" id="hotel-wa-box">
+        <div class="hotel-wa-ttl">
+          🏨 <span id="lbl-hotel-wa-ttl">Confirmar ao NH Liberdade — via WhatsApp</span>
+        </div>
+        <div class="hotel-wa-desc" id="lbl-hotel-wa-desc">
+          Envie esta mensagem ao hotel para confirmar que a sua agência aceita este transfer. O hotel irá registar a confirmação no sistema.
+        </div>
+        <div class="m-field" style="margin-top:12px">
+          <label id="lbl-wa-prev-lang">Idioma da mensagem / pré-visualização</label>
+          <select class="m-sel wa-prev-lang-sel" id="wa-prev-lang" title="Language">
+            <option value="PT">Português — PT</option>
+            <option value="EN">English — EN</option>
+            <option value="FR">Français — FR</option>
+            <option value="ES">Español — ES</option>
+          </select>
+        </div>
+        <div class="hotel-wa-btns">
+          <button class="btn btn-hotel-wa btn-sm" onclick="openWA('hotel')">
+            🏨 <span id="lbl-hotel-wa-btn">Confirmar ao Hotel via WhatsApp</span>
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="copyHotelMsg()">
+            📋 <span id="lbl-copy-msg">Copiar Mensagem</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="modal-sec" id="lbl-modal-actions">⚡ Ações</div>
+      <div class="m-field" id="prix-field">
+        <label id="lbl-m-prix">Preço (€)</label>
+        <input class="m-inp" type="number" id="m-prix" min="0" step="0.01" placeholder="0.00">
+      </div>
+      <div class="m-field" id="comment-field">
+        <label id="lbl-m-comment">Comentário (opcional)</label>
+        <textarea class="m-ta" id="m-comment" rows="2" placeholder="Observações internas…"></textarea>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('ov-modal')" id="lbl-btn-close">Fechar</button>
+      <div class="modal-footer-right">
+        <button class="btn btn-warn btn-sm" id="btn-price-r" onclick="doChangePrice()">💶 <span id="lbl-btn-price">Alterar Preço</span></button>
+        <button class="btn btn-danger" id="btn-cancel-r" onclick="doAction('cancelado')">❌ <span id="lbl-btn-cancel">Cancelar</span></button>
+        <button class="btn btn-success" id="btn-confirm-r" onclick="doAction('confirmado')">✅ <span id="lbl-btn-confirm">Confirmar</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// TRADUCTIONS
+// ═══════════════════════════════════════════════════════════════════
+const UI = {
+  PT:{loginTitle:'🔐 Portal Agências',agId:'Identificador',agPass:'Palavra-passe',loginBtn:'Entrar',resetLink:'Alterar / Recuperar palavra-passe',r1Title:'🔑 Recuperar Palavra-passe',r1Sub:'Introduza o seu identificador e o email registado',r1Id:'Identificador',r1Email:'Email registado na conta',r1Btn:'Enviar Código',back1:'Voltar ao login',r2Title:'📧 Verificar Código',r2Sub:'Código enviado para o seu email',r2Code:'Código de verificação (6 dígitos)',r2New:'Nova palavra-passe (min. 8 car.)',r2Cf:'Confirmar nova palavra-passe',r2Btn:'Alterar Palavra-passe',r2Hint:'O código é válido durante 15 minutos',back2:'Pedir novo código',errEmpty:'Preencha todos os campos.',errConn:'Erro de ligação.',errPwMatch:'As palavras-passe não coincidem.',errPwShort:'Mínimo 8 caracteres.',okPwChanged:'✅ Palavra-passe alterada com sucesso!',sTotal:'Total',sPend:'Pendentes',sConf:'Confirmadas',sUpcoming:'A Realizar',cardTtl:'Reservas Atribuídas',expExcel:'Excel',expPdf:'PDF',refreshTxt:'Atualizar',fStatut:'Estatuto',fAll:'Todos',fPend:'⏳ Pendente',fConf:'✅ Confirmado',fCanc:'❌ Cancelado',fReal:'🏁 Realizado',fDs:'Data início',fDe:'Data fim',fDest:'Destino',fDestAll:'Todos',btnFilter:'Filtrar',btnReset:'Limpar',loading:'A carregar…',logout:'⎋ Sair',modalTtl:'Detalhes da Reserva',modalActions:'⚡ Ações',mPrix:'Preço (€)',mComment:'Comentário (opcional)',btnClose:'Fechar',btnCancel:'Cancelar',btnConfirm:'Confirmar',btnPrice:'Alterar Preço',waTtl:'Confirmação WhatsApp → Cliente',waPhone:'WhatsApp cliente',waBtn:'Abrir WhatsApp → Cliente',hotelWaTtl:'Confirmar ao NH Liberdade — via WhatsApp',hotelWaDesc:'Envie esta mensagem ao hotel para confirmar que a sua agência aceita este transfer.',hotelWaBtn:'Confirmar ao Hotel via WhatsApp',copyMsg:'Copiar Mensagem',calTtl:'Adicionar ao Calendário',colRef:'Ref.',colClient:'Cliente',colDate:'Data',colHour:'Hora',colRoute:'Trajet',colPax:'Pax',colPrice:'Preço',colStatus:'Estado',colActs:'Ações',emptyTitle:'Nenhuma reserva encontrada',emptySub:'Tente ajustar os filtros.',toastConf:'✅ Confirmada com sucesso',toastCanc:'❌ Cancelada',toastExcel:'📊 Excel exportado',toastPdf:'🖨️ PDF impresso',toastWa:'💬 WhatsApp aberto!',toastHotelWa:'🏨 Mensagem de confirmação aberta ao hotel!',toastPrice:'💶 Preço atualizado',toastCopy:'📋 Mensagem copiada!',confirmCancel:'Cancelar a reserva',msgConf:'✅ Reserva confirmada!',msgCanc:'❌ Reserva cancelada.',msgPrice:'💶 Preço atualizado!',pageOf:'de',lblClient:'Cliente',lblEmail:'Email',lblPhone:'Telefone',lblOta:'Ref. OTA',lblDate:'Data / Hora',lblPaxMalas:'Pax / Malas',lblOrigin:'Partida',lblAddrDep:'Morada Partida',lblDest:'Destino',lblAddrDest:'Morada Destino',lblFlight:'Nº Voo',lblTransport:'Nº Transporte',lblRoom:'Quarto',lblPrice:'Preço',lblStatus:'Estado',lblComments:'Comentários',tabAll:'Todas as Reservas',tabUpcoming:'Próximas Transferências',upcomingTitle:'Próximas Transferências',upcomingSub:'Transfers futuros não realizados — por ordem cronológica',upcomingEmpty:'Nenhum transfer futuro pendente.',today:'Hoje',tomorrow:'Amanhã',emailPrevSec:'📧 Pré-visualização do texto enviado',waPrevLang:'Idioma da mensagem (lista)',payIncl:'Incluir modo de pagamento no texto',payModeLbl:'Modo de pagamento',payOff:'(não mostrar linha)',paySheet:'Definição da agência (gestão de acessos)',payDriver:'Numerário ao motorista',payRecep:'Numerário na receção do hotel',payCustomOpt:'Personalizado (texto livre)',payCustomLbl:'Texto personalizado (igual em todas as línguas)',payCustomPh:'Ex.: Pagamento no local…'},
+  EN:{loginTitle:'🔐 Agency Portal',agId:'Agency ID',agPass:'Password',loginBtn:'Sign In',resetLink:'Change / Reset password',r1Title:'🔑 Reset Password',r1Sub:'Enter your ID and registered email',r1Id:'Agency ID',r1Email:'Registered email address',r1Btn:'Send Code',back1:'Back to login',r2Title:'📧 Verify Code',r2Sub:'Code sent to your email',r2Code:'Verification code (6 digits)',r2New:'New password (min. 8 chars)',r2Cf:'Confirm new password',r2Btn:'Change Password',r2Hint:'The code is valid for 15 minutes',back2:'Request new code',errEmpty:'Please fill in all fields.',errConn:'Connection error.',errPwMatch:'Passwords do not match.',errPwShort:'Minimum 8 characters.',okPwChanged:'✅ Password changed successfully!',sTotal:'Total',sPend:'Pending',sConf:'Confirmed',sUpcoming:'Upcoming',cardTtl:'Assigned Bookings',expExcel:'Excel',expPdf:'PDF',refreshTxt:'Refresh',fStatut:'Status',fAll:'All',fPend:'⏳ Pending',fConf:'✅ Confirmed',fCanc:'❌ Cancelled',fReal:'🏁 Completed',fDs:'Start date',fDe:'End date',fDest:'Destination',fDestAll:'All',btnFilter:'Filter',btnReset:'Clear',loading:'Loading…',logout:'⎋ Sign out',modalTtl:'Booking Details',modalActions:'⚡ Actions',mPrix:'Price (€)',mComment:'Comment (optional)',btnClose:'Close',btnCancel:'Cancel',btnConfirm:'Confirm',btnPrice:'Change Price',waTtl:'WhatsApp Confirmation → Client',waPhone:'Client WhatsApp',waBtn:'Open WhatsApp → Client',hotelWaTtl:'Confirm to NH Liberdade — via WhatsApp',hotelWaDesc:'Send this message to the hotel to confirm your agency accepts this transfer.',hotelWaBtn:'Confirm to Hotel via WhatsApp',copyMsg:'Copy Message',calTtl:'Add to Calendar',colRef:'Ref.',colClient:'Client',colDate:'Date',colHour:'Time',colRoute:'Route',colPax:'Pax',colPrice:'Price',colStatus:'Status',colActs:'Actions',emptyTitle:'No bookings found',emptySub:'Try adjusting the filters.',toastConf:'✅ Confirmed successfully',toastCanc:'❌ Cancelled',toastExcel:'📊 Excel exported',toastPdf:'🖨️ PDF printed',toastWa:'💬 WhatsApp opened!',toastHotelWa:'🏨 Hotel confirmation message opened!',toastPrice:'💶 Price updated',toastCopy:'📋 Message copied!',confirmCancel:'Cancel this booking',msgConf:'✅ Booking confirmed!',msgCanc:'❌ Booking cancelled.',msgPrice:'💶 Price updated!',pageOf:'of',lblClient:'Client',lblEmail:'Email',lblPhone:'Phone',lblOta:'OTA Ref.',lblDate:'Date / Time',lblPaxMalas:'Pax / Bags',lblOrigin:'Origin',lblAddrDep:'Departure Address',lblDest:'Destination',lblAddrDest:'Destination Address',lblFlight:'Flight N°',lblTransport:'Transport N°',lblRoom:'Room',lblPrice:'Price',lblStatus:'Status',lblComments:'Comments',tabAll:'All Bookings',tabUpcoming:'Upcoming Transfers',upcomingTitle:'Upcoming Transfers',upcomingSub:'Future transfers not yet completed — in chronological order',upcomingEmpty:'No upcoming pending transfers.',today:'Today',tomorrow:'Tomorrow',emailPrevSec:'📧 Message preview',waPrevLang:'Message language (dropdown)',payIncl:'Include payment method in the text',payModeLbl:'Payment mode',payOff:'(hide line)',paySheet:'Agency setting (access management)',payDriver:'Cash to the driver',payRecep:'Cash at hotel reception',payCustomOpt:'Custom (free text)',payCustomLbl:'Custom text (all languages)',payCustomPh:'e.g. Payment on arrival…'},
+  FR:{loginTitle:'🔐 Portail Agences',agId:'Identifiant',agPass:'Mot de passe',loginBtn:'Se connecter',resetLink:'Changer / Récupérer le mot de passe',r1Title:'🔑 Récupérer le Mot de Passe',r1Sub:'Saisissez votre identifiant et email enregistré',r1Id:'Identifiant',r1Email:'Email enregistré sur le compte',r1Btn:'Envoyer le Code',back1:'Retour au login',r2Title:'📧 Vérifier le Code',r2Sub:'Code envoyé à votre email',r2Code:'Code de vérification (6 chiffres)',r2New:'Nouveau mot de passe (min. 8 car.)',r2Cf:'Confirmer le nouveau mot de passe',r2Btn:'Changer le Mot de Passe',r2Hint:'Le code est valide pendant 15 minutes',back2:'Demander un nouveau code',errEmpty:'Veuillez remplir tous les champs.',errConn:'Erreur de connexion.',errPwMatch:'Les mots de passe ne correspondent pas.',errPwShort:'Minimum 8 caractères.',okPwChanged:'✅ Mot de passe changé avec succès !',sTotal:'Total',sPend:'En attente',sConf:'Confirmées',sUpcoming:'À réaliser',cardTtl:'Réservations Attribuées',expExcel:'Excel',expPdf:'PDF',refreshTxt:'Actualiser',fStatut:'Statut',fAll:'Tous',fPend:'⏳ En attente',fConf:'✅ Confirmée',fCanc:'❌ Annulée',fReal:'🏁 Réalisée',fDs:'Date début',fDe:'Date fin',fDest:'Destination',fDestAll:'Tous',btnFilter:'Filtrer',btnReset:'Effacer',loading:'Chargement…',logout:'⎋ Déconnexion',modalTtl:'Détails de la Réservation',modalActions:'⚡ Actions',mPrix:'Prix (€)',mComment:'Commentaire (optionnel)',btnClose:'Fermer',btnCancel:'Annuler',btnConfirm:'Confirmer',btnPrice:'Modifier le Prix',waTtl:'Confirmation WhatsApp → Client',waPhone:'WhatsApp client',waBtn:'Ouvrir WhatsApp → Client',hotelWaTtl:"Confirmer à NH Liberdade — via WhatsApp",hotelWaDesc:"Envoyez ce message à l'hôtel pour confirmer que votre agence accepte ce transfert.",hotelWaBtn:'Confirmer à l\'Hôtel via WhatsApp',copyMsg:'Copier le Message',calTtl:'Ajouter au Calendrier',colRef:'Réf.',colClient:'Client',colDate:'Date',colHour:'Heure',colRoute:'Trajet',colPax:'Pax',colPrice:'Prix',colStatus:'Statut',colActs:'Actions',emptyTitle:'Aucune réservation trouvée',emptySub:"Essayez d'ajuster les filtres.",toastConf:'✅ Confirmée avec succès',toastCanc:'❌ Annulée',toastExcel:'📊 Excel exporté',toastPdf:'🖨️ PDF imprimé',toastWa:'💬 WhatsApp ouvert !',toastHotelWa:"🏨 Message de confirmation hôtel ouvert !",toastPrice:'💶 Prix mis à jour',toastCopy:'📋 Message copié !',confirmCancel:'Annuler cette réservation',msgConf:'✅ Réservation confirmée !',msgCanc:'❌ Réservation annulée.',msgPrice:'💶 Prix mis à jour !',pageOf:'sur',lblClient:'Client',lblEmail:'Email',lblPhone:'Téléphone',lblOta:'Réf. OTA',lblDate:'Date / Heure',lblPaxMalas:'Pax / Bagages',lblOrigin:'Départ',lblAddrDep:'Adresse départ',lblDest:'Destination',lblAddrDest:'Adresse destination',lblFlight:'N° Vol',lblTransport:'N° Transport',lblRoom:'Chambre',lblPrice:'Prix',lblStatus:'Statut',lblComments:'Commentaires',tabAll:'Toutes les Réservations',tabUpcoming:'Prochains Transferts',upcomingTitle:'Prochains Transferts',upcomingSub:'Transferts futurs non encore réalisés — par ordre chronologique',upcomingEmpty:'Aucun transfert futur en attente.',today:"Aujourd'hui",tomorrow:'Demain',emailPrevSec:'📧 Aperçu du texte envoyé',waPrevLang:'Langue du message (liste)',payIncl:'Inclure le mode de paiement dans le texte',payModeLbl:'Mode de paiement',payOff:'(ne pas afficher)',paySheet:'Paramètre agence (gestion des accès)',payDriver:'Espèces au chauffeur',payRecep:'Espèces à la réception',payCustomOpt:'Personnalisé (texte libre)',payCustomLbl:'Texte personnalisé (toutes langues)',payCustomPh:'Ex. : Paiement sur place…'},
+  ES:{loginTitle:'🔐 Portal Agencias',agId:'Identificador',agPass:'Contraseña',loginBtn:'Entrar',resetLink:'Cambiar / Recuperar contraseña',r1Title:'🔑 Recuperar Contraseña',r1Sub:'Introduzca su identificador y email registrado',r1Id:'Identificador',r1Email:'Email registrado en la cuenta',r1Btn:'Enviar Código',back1:'Volver al acceso',r2Title:'📧 Verificar Código',r2Sub:'Código enviado a su email',r2Code:'Código de verificación (6 dígitos)',r2New:'Nueva contraseña (mín. 8 car.)',r2Cf:'Confirmar nueva contraseña',r2Btn:'Cambiar Contraseña',r2Hint:'El código es válido durante 15 minutos',back2:'Pedir nuevo código',errEmpty:'Por favor rellene todos los campos.',errConn:'Error de conexión.',errPwMatch:'Las contraseñas no coinciden.',errPwShort:'Mínimo 8 caracteres.',okPwChanged:'✅ ¡Contraseña cambiada con éxito!',sTotal:'Total',sPend:'Pendientes',sConf:'Confirmadas',sUpcoming:'A Realizar',cardTtl:'Reservas Asignadas',expExcel:'Excel',expPdf:'PDF',refreshTxt:'Actualizar',fStatut:'Estado',fAll:'Todos',fPend:'⏳ Pendiente',fConf:'✅ Confirmada',fCanc:'❌ Cancelada',fReal:'🏁 Realizada',fDs:'Fecha inicio',fDe:'Fecha fin',fDest:'Destino',fDestAll:'Todos',btnFilter:'Filtrar',btnReset:'Borrar',loading:'Cargando…',logout:'⎋ Salir',modalTtl:'Detalles de la Reserva',modalActions:'⚡ Acciones',mPrix:'Precio (€)',mComment:'Comentario (opcional)',btnClose:'Cerrar',btnCancel:'Cancelar',btnConfirm:'Confirmar',btnPrice:'Cambiar Precio',waTtl:'Confirmación WhatsApp → Cliente',waPhone:'WhatsApp cliente',waBtn:'Abrir WhatsApp → Cliente',hotelWaTtl:'Confirmar a NH Liberdade — via WhatsApp',hotelWaDesc:'Envíe este mensaje al hotel para confirmar que su agencia acepta este traslado.',hotelWaBtn:'Confirmar al Hotel via WhatsApp',copyMsg:'Copiar Mensaje',calTtl:'Agregar al Calendario',colRef:'Ref.',colClient:'Cliente',colDate:'Fecha',colHour:'Hora',colRoute:'Ruta',colPax:'Pax',colPrice:'Precio',colStatus:'Estado',colActs:'Acciones',emptyTitle:'No se encontraron reservas',emptySub:'Intente ajustar los filtros.',toastConf:'✅ Confirmada con éxito',toastCanc:'❌ Cancelada',toastExcel:'📊 Excel exportado',toastPdf:'🖨️ PDF impreso',toastWa:'💬 ¡WhatsApp abierto!',toastHotelWa:'🏨 ¡Mensaje de confirmación al hotel abierto!',toastPrice:'💶 Precio actualizado',toastCopy:'📋 ¡Mensaje copiado!',confirmCancel:'Cancelar esta reserva',msgConf:'✅ ¡Reserva confirmada!',msgCanc:'❌ Reserva cancelada.',msgPrice:'💶 ¡Precio actualizado!',pageOf:'de',lblClient:'Cliente',lblEmail:'Email',lblPhone:'Teléfono',lblOta:'Ref. OTA',lblDate:'Fecha / Hora',lblPaxMalas:'Pax / Maletas',lblOrigin:'Salida',lblAddrDep:'Dirección salida',lblDest:'Destino',lblAddrDest:'Dirección destino',lblFlight:'N° Vuelo',lblTransport:'N° Transporte',lblRoom:'Habitación',lblPrice:'Precio',lblStatus:'Estado',lblComments:'Comentarios',tabAll:'Todas las Reservas',tabUpcoming:'Próximas Transferencias',upcomingTitle:'Próximas Transferencias',upcomingSub:'Transferencias futuras no realizadas — en orden cronológico',upcomingEmpty:'No hay transferencias futuras pendientes.',today:'Hoy',tomorrow:'Mañana',emailPrevSec:'📧 Vista previa del texto enviado',waPrevLang:'Idioma del mensaje (lista)',payIncl:'Incluir modo de pago en el texto',payModeLbl:'Modo de pago',payOff:'(no mostrar)',paySheet:'Definición de la agencia (gestión de accesos)',payDriver:'Efectivo al conductor',payRecep:'Efectivo en recepción del hotel',payCustomOpt:'Personalizado (texto libre)',payCustomLbl:'Texto personalizado (todas las lenguas)',payCustomPh:'Ej.: Pago en destino…'}
+};
+
+(function(){
+  const N = {
+    PT:{notifToggle:'Alertas de novas reservas (navegador)',notifTitle:'Nova reserva atribuída',notifBodyRef:'Ref.',notifMany:'novas reservas',notifDenied:'Permissão de notificações negada nas definições do navegador.',notifNoBrowser:'Este navegador não suporta notificações.'},
+    EN:{notifToggle:'New booking alerts (browser)',notifTitle:'New assigned booking',notifBodyRef:'Ref.',notifMany:'new bookings',notifDenied:'Notification permission blocked in browser settings.',notifNoBrowser:'This browser does not support notifications.'},
+    FR:{notifToggle:'Alertes nouvelles réservations (navigateur)',notifTitle:'Nouvelle réservation attribuée',notifBodyRef:'Réf.',notifMany:'nouvelles réservations',notifDenied:'Permission de notification refusée dans le navigateur.',notifNoBrowser:'Ce navigateur ne prend pas en charge les notifications.'},
+    ES:{notifToggle:'Alertas de nuevas reservas (navegador)',notifTitle:'Nueva reserva asignada',notifBodyRef:'Ref.',notifMany:'nuevas reservas',notifDenied:'Permiso de notificaciones bloqueado en el navegador.',notifNoBrowser:'Este navegador no admite notificaciones.'}
+  };
+  Object.keys(N).forEach(function(k){ Object.assign(UI[k], N[k]); });
+})();
+
+// ═══════════════════════════════════════════════════════════════════
+// TEMPLATES WHATSAPP — CLIENT (demande de confirmation au client)
+// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+// TEMPLATES WHATSAPP — HÔTEL (confirmation de l'agence vers l'hôtel)
+// ═══════════════════════════════════════════════════════════════════
+/* Sans emojis (compatibilité WhatsApp, évite les caractères �) */
+const WA_HOTEL = {
+  PT:(r,ag)=>`*CONFIRMAÇÃO DE AGÊNCIA*\n\nConfirmamos a nossa disponibilidade para o seguinte transfer:\n\n- Ref.: *${r.id}*\n- Cliente: ${r.clientNom||'—'}\n- Telemóvel cliente: ${r.telephone||r.clientTel||'—'}\n- Data: *${fmtD(r.dateTransfer)} às ${r.heureTransfer}*\n- Partida: ${r.pointDepart||'—'}${r.adresseDepart?' ('+r.adresseDepart+')':''}\n- Destino: ${r.destination||'—'}${r.adresseDestination?' ('+r.adresseDestination+')':''}\n- ${r.personnes||'—'} pax · ${r.malas||'0'} malas${r.numVol?'\n- Voo: '+r.numVol:''}${r.numTransport?'\n- Transporte: '+r.numTransport:''}\n- Preço acordado: *${r.prixFinal?r.prixFinal+' €':'A confirmar'}*\n\n- Agência: *${ag||'—'}*\n\nPor favor confirme o registo no sistema. Obrigado!`,
+  EN:(r,ag)=>`*AGENCY CONFIRMATION*\n\nWe confirm our availability for the following transfer:\n\n- Ref.: *${r.id}*\n- Client: ${r.clientNom||'—'}\n- Client phone: ${r.telephone||r.clientTel||'—'}\n- Date: *${fmtD(r.dateTransfer)} at ${r.heureTransfer}*\n- From: ${r.pointDepart||'—'}${r.adresseDepart?' ('+r.adresseDepart+')':''}\n- To: ${r.destination||'—'}${r.adresseDestination?' ('+r.adresseDestination+')':''}\n- ${r.personnes||'—'} pax · ${r.malas||'0'} bags${r.numVol?'\n- Flight: '+r.numVol:''}${r.numTransport?'\n- Transport: '+r.numTransport:''}\n- Agreed price: *${r.prixFinal?r.prixFinal+' €':'To confirm'}*\n\n- Agency: *${ag||'—'}*\n\nPlease confirm registration in the system. Thank you!`,
+  FR:(r,ag)=>`*CONFIRMATION D'AGENCE*\n\nNous confirmons notre disponibilité pour le transfert suivant :\n\n- Réf. : *${r.id}*\n- Client : ${r.clientNom||'—'}\n- Téléphone client : ${r.telephone||r.clientTel||'—'}\n- Date : *${fmtD(r.dateTransfer)} à ${r.heureTransfer}*\n- Départ : ${r.pointDepart||'—'}${r.adresseDepart?' ('+r.adresseDepart+')':''}\n- Destination : ${r.destination||'—'}${r.adresseDestination?' ('+r.adresseDestination+')':''}\n- ${r.personnes||'—'} pax · ${r.malas||'0'} bagages${r.numVol?'\n- Vol : '+r.numVol:''}${r.numTransport?'\n- Transport : '+r.numTransport:''}\n- Prix convenu : *${r.prixFinal?r.prixFinal+' €':'À confirmer'}*\n\n- Agence : *${ag||'—'}*\n\nMerci de confirmer l'enregistrement dans le système. Merci !`,
+  ES:(r,ag)=>`*CONFIRMACIÓN DE AGENCIA*\n\nConfirmamos nuestra disponibilidad para el siguiente traslado:\n\n- Ref.: *${r.id}*\n- Cliente: ${r.clientNom||'—'}\n- Teléfono cliente: ${r.telephone||r.clientTel||'—'}\n- Fecha: *${fmtD(r.dateTransfer)} a las ${r.heureTransfer}*\n- Salida: ${r.pointDepart||'—'}${r.adresseDepart?' ('+r.adresseDepart+')':''}\n- Destino: ${r.destination||'—'}${r.adresseDestination?' ('+r.adresseDestination+')':''}\n- ${r.personnes||'—'} pax · ${r.malas||'0'} maletas${r.numVol?'\n- Vuelo: '+r.numVol:''}${r.numTransport?'\n- Transporte: '+r.numTransport:''}\n- Precio acordado: *${r.prixFinal?r.prixFinal+' €':'A confirmar'}*\n\n- Agencia: *${ag||'—'}*\n\nPor favor confirme el registro en el sistema. Gracias.`
+};
+
+function getWaPreviewLang(){
+  const sel = document.getElementById('wa-prev-lang');
+  if(sel && sel.value) return sel.value;
+  return APP.lang || 'PT';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ÉTAT GLOBAL
+// ═══════════════════════════════════════════════════════════════════
+const APP = {
+  agencyId:null, agencyNom:null, token:null, lang:'PT',
+  methodePaiement:'',
+  reservas:[], page:1, perPage:15,
+  curId:null, curIdx:null,
+  curWaResa:null,
+  resetId:null, curTab:'all',
+  loginTime:null,
+  /** Filtre rapide par carte KPI : all | pendente | confirmado | upcoming | null (ex. cancelado/realizado au menu) */
+  statCardFilter:'all',
+  /** Tri tableau : clé (id|client|date|hour|route|pax|price|statut) ou null ; dir 1 = asc, -1 = desc */
+  tblSortKey:null,tblSortDir:1
+};
+
+/* Session : actualizar página não desconecta ; saída automática após 3 h sem atividade. */
+const AG_IDLE_MS = 3 * 60 * 60 * 1000;
+const AG_ACT = 'nhc_ag_last_activity';
+const AG_ID_LS = 'nhc_ag_id_mirror';
+const AG_NOM_LS = 'nhc_ag_nom_mirror';
+const AG_TOK_LS = 'nhc_ag_tok_mirror';
+const AG_LT_LS = 'nhc_ag_lt_mirror';
+const AG_METH_LS = 'nhc_ag_meth_mirror';
+
+function persistAgencySession() {
+  try {
+    sessionStorage.setItem('nhc_ag_id', APP.agencyId);
+    sessionStorage.setItem('nhc_ag_nom', APP.agencyNom);
+    sessionStorage.setItem('nhc_ag_tok', APP.token);
+    sessionStorage.setItem('nhc_ag_lt', String(APP.loginTime));
+    if(APP.methodePaiement!=null) sessionStorage.setItem('nhc_ag_meth', String(APP.methodePaiement));
+    localStorage.setItem(AG_ID_LS, APP.agencyId);
+    localStorage.setItem(AG_NOM_LS, APP.agencyNom);
+    localStorage.setItem(AG_TOK_LS, APP.token);
+    localStorage.setItem(AG_LT_LS, String(APP.loginTime));
+    localStorage.setItem(AG_ACT, String(Date.now()));
+    if(APP.methodePaiement!=null) localStorage.setItem(AG_METH_LS, String(APP.methodePaiement));
+  } catch (e) {}
+}
+function readAgencySession() {
+  try {
+    const id = sessionStorage.getItem('nhc_ag_id') || localStorage.getItem(AG_ID_LS);
+    const nom = sessionStorage.getItem('nhc_ag_nom') || localStorage.getItem(AG_NOM_LS);
+    const tok = sessionStorage.getItem('nhc_ag_tok') || localStorage.getItem(AG_TOK_LS);
+    const lt = parseInt(sessionStorage.getItem('nhc_ag_lt') || localStorage.getItem(AG_LT_LS) || '0', 10);
+    const meth = sessionStorage.getItem('nhc_ag_meth') || localStorage.getItem(AG_METH_LS) || '';
+    return { id, nom, tok, lt, meth };
+  } catch (e) { return {}; }
+}
+function clearAgencySessionAll() {
+  try {
+    ['nhc_ag_id', 'nhc_ag_nom', 'nhc_ag_tok', 'nhc_ag_lt', 'nhc_ag_meth'].forEach(k => sessionStorage.removeItem(k));
+    localStorage.removeItem(AG_ID_LS);
+    localStorage.removeItem(AG_NOM_LS);
+    localStorage.removeItem(AG_TOK_LS);
+    localStorage.removeItem(AG_LT_LS);
+    localStorage.removeItem(AG_ACT);
+    localStorage.removeItem(AG_METH_LS);
+  } catch (e) {}
+}
+function bumpAgencyActivity() {
+  if (!APP.token) return;
+  try { localStorage.setItem(AG_ACT, String(Date.now())); } catch (e) {}
+}
+/** Affiche le nom d'agence (feuille AGENCIES) partout dans l'en-tête après connexion. */
+function refreshAgencyNameUi() {
+  const nom = (APP.agencyNom && String(APP.agencyNom).trim()) || APP.agencyId || '—';
+  const ag = document.getElementById('ag-name-display');
+  const sb = document.getElementById('sb-agency');
+  const hd = document.getElementById('header-agency-name');
+  if (ag) ag.textContent = nom;
+  if (sb) sb.textContent = nom + (APP.agencyId ? ' (' + APP.agencyId + ')' : '');
+  if (hd) hd.textContent = nom;
+}
+function isAgencyIdleExpired() {
+  try {
+    const last = parseInt(localStorage.getItem(AG_ACT) || '0', 10);
+    if (!last) return false;
+    return Date.now() - last > AG_IDLE_MS;
+  } catch (e) { return false; }
+}
+function logoutAgencyIdle() {
+  /* Désactivé : déconnexion uniquement via « Sair » (demande utilisateur). */
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════════════
+function checkApiConfig(){
+  const notConf = !API_URL || API_URL === 'https://script.google.com/macros/s/AKfycbxvkJFzutfJIZkC2tXdroFawnha_vqQ9ubB0wYM7rflxWNrMIIdxoPIHcU-QqNdQgLT4A/exec';
+  const banner = document.getElementById('config-banner');
+  if(notConf && banner) banner.classList.add('show');
+  return !notConf;
+}
+
+async function api(payload){
+  if(!API_URL || API_URL === 'https://script.google.com/macros/s/AKfycbxvkJFzutfJIZkC2tXdroFawnha_vqQ9ubB0wYM7rflxWNrMIIdxoPIHcU-QqNdQgLT4A/exec'){
+    throw new Error('⚠️ URL de l\'API non configurée. Ouvrez ce fichier HTML et remplacez https://script.google.com/macros/s/AKfycbxvkJFzutfJIZkC2tXdroFawnha_vqQ9ubB0wYM7rflxWNrMIIdxoPIHcU-QqNdQgLT4A/exec par l\'URL de votre déploiement Apps Script Google.');
+  }
+  const r = await fetch(API_URL, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain'},
+    body: JSON.stringify(payload)
+  });
+  if(!r.ok) throw new Error('HTTP ' + r.status + ' — ' + r.statusText);
+  const data = await r.json();
+  return data;
+}
+
+const t = () => UI[APP.lang] || UI['PT'];
+
+function toast(msg, type='default'){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast ' + type + ' show';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 3800);
+}
+
+function msgBox(id, txt, type){
+  const e = document.getElementById(id);
+  if(!e) return;
+  e.textContent = txt;
+  e.className = 'msg-box ' + type + ' show';
+}
+
+function msgModal(txt, type){
+  const e = document.getElementById('m-msg');
+  if(!e) return;
+  e.textContent = txt;
+  e.className = 'modal-msg ' + type + ' show';
+  setTimeout(() => { if(e) e.classList.remove('show'); }, 4000);
+}
+
+function fmtD(d){
+  if(!d) return '—';
+  const p = d.split('-');
+  return p.length === 3 ? p[2]+'/'+p[1]+'/'+p[0] : d;
+}
+
+function parseDate(d){
+  if(!d) return null;
+  try { return new Date(d + 'T00:00:00'); } catch(e){ return null; }
+}
+
+function badge(st){
+  const labels = {
+    pendente:  {PT:'Pendente',EN:'Pending',FR:'En attente',ES:'Pendiente'},
+    confirmado:{PT:'Confirmado',EN:'Confirmed',FR:'Confirmée',ES:'Confirmada'},
+    cancelado: {PT:'Cancelado',EN:'Cancelled',FR:'Annulée',ES:'Cancelada'},
+    realizado: {PT:'Realizado',EN:'Completed',FR:'Réalisée',ES:'Realizada'}
+  };
+  const cls = {pendente:'b-pend',confirmado:'b-conf',cancelado:'b-canc',realizado:'b-real'};
+  const lbl = labels[st]?.[APP.lang] || labels[st]?.PT || st;
+  return `<span class="badge ${cls[st]||'b-pend'}">${lbl}</span>`;
+}
+
+function oIco(tp){
+  return {airport:'✈️',hotel:'🏨',bus:'🚌',train:'🚂',highspeed:'🚄'}[tp] || '🚗';
+}
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s => {
+    s.classList.remove('on');
+    s.style.display = 'none';
+  });
+  const el = document.getElementById(id);
+  el.style.display = 'flex';
+  requestAnimationFrame(() => el.classList.add('on'));
+}
+
+function openModal(id){
+  document.getElementById(id).classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal(id){
+  document.getElementById(id).classList.remove('open');
+  document.body.style.overflow = '';
+  APP.curId = null; APP.curIdx = null;
+}
+
+function closeOv(id, e){
+  if(e.target === document.getElementById(id)) closeModal(id);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// LANGUE
+// ═══════════════════════════════════════════════════════════════════
+function setLang(lang, zone){
+  if(!UI[lang]) lang = 'PT';
+  APP.lang = lang;
+  const T = UI[lang];
+  const sel = zone === 'login' ? '.lang-top .lp' : '.lang-app .lp';
+  document.querySelectorAll(sel).forEach(p => {
+    p.classList.toggle('active', p.textContent.trim() === lang);
+  });
+  const loginSel = document.getElementById('lang-login-sel');
+  if(loginSel) loginSel.value = lang;
+  const appSel = document.getElementById('lang-app-sel');
+  if(appSel) appSel.value = lang;
+  const s = (id, v) => { const e = document.getElementById(id); if(e) e.textContent = v; };
+  // Login
+  s('lbl-login-title',T.loginTitle); s('lbl-ag-id',T.agId); s('lbl-ag-pass',T.agPass);
+  s('lbl-login-btn',T.loginBtn); s('lbl-reset-link',T.resetLink);
+  s('lbl-r1-title',T.r1Title); s('lbl-r1-sub',T.r1Sub); s('lbl-r1-id',T.r1Id);
+  s('lbl-r1-email',T.r1Email); s('lbl-r1-btn',T.r1Btn); s('lbl-back1',T.back1);
+  s('lbl-r2-title',T.r2Title); s('lbl-r2-sub',T.r2Sub); s('lbl-r2-code',T.r2Code);
+  s('lbl-r2-new',T.r2New); s('lbl-r2-cf',T.r2Cf); s('lbl-r2-btn',T.r2Btn);
+  s('lbl-r2-hint',T.r2Hint); s('lbl-back2',T.back2);
+  // App stats
+  s('lbl-s-total',T.sTotal); s('lbl-s-pend',T.sPend); s('lbl-s-conf',T.sConf);
+  s('lbl-s-upcoming',T.sUpcoming);
+  // App UI
+  s('lbl-card-ttl',T.cardTtl); s('lbl-exp-excel',T.expExcel); s('lbl-exp-pdf',T.expPdf);
+  s('lbl-refresh-txt',T.refreshTxt); s('lbl-f-statut',T.fStatut);
+  s('f-all',T.fAll); s('f-pend',T.fPend); s('f-conf',T.fConf); s('f-canc',T.fCanc); s('f-real',T.fReal);
+  s('lbl-f-ds',T.fDs); s('lbl-f-de',T.fDe); s('lbl-f-dest',T.fDest); s('f-dest-all',T.fDestAll);
+  s('lbl-btn-filter',T.btnFilter); s('lbl-btn-reset',T.btnReset);   s('lbl-loading',T.loading);
+  s('lbl-logout',T.logout);
+  s('lbl-notif-toggle',T.notifToggle);
+  // Modal
+  s('lbl-modal-ttl',T.modalTtl); s('lbl-modal-actions',T.modalActions);
+  s('lbl-m-prix',T.mPrix); s('lbl-m-comment',T.mComment);
+  s('lbl-btn-close',T.btnClose); s('lbl-btn-cancel',T.btnCancel);
+  s('lbl-btn-confirm',T.btnConfirm); s('lbl-btn-price',T.btnPrice);
+  s('lbl-hotel-wa-ttl',T.hotelWaTtl); s('lbl-hotel-wa-desc',T.hotelWaDesc);
+  s('lbl-hotel-wa-btn',T.hotelWaBtn); s('lbl-copy-msg',T.copyMsg);
+  s('lbl-cal-ttl',T.calTtl);
+  s('lbl-wa-prev-lang',T.waPrevLang);
+  s('lbl-tab-all',T.tabAll); s('lbl-tab-upcoming',T.tabUpcoming);
+  s('lbl-upcoming-title',T.upcomingTitle); s('lbl-upcoming-sub',T.upcomingSub);
+  if(zone==='app'){
+    const wpl=document.getElementById('wa-prev-lang');
+    if(wpl) wpl.value=lang;
+  }
+  // Re-render if data loaded
+  if(APP.reservas.length > 0){
+    renderTable();
+    refreshStatCardFilterUi();
+    if(APP.curTab === 'upcoming') renderUpcoming();
+    if(APP.curId) {
+      const idx = APP.reservas.findIndex(x => x.id === APP.curId);
+      if(idx !== -1) renderModal(idx);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════════════════
+function switchTab(tab){
+  APP.curTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-btn-' + tab).classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+  if(tab === 'upcoming') renderUpcoming();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════════════════
+function showLogin(){
+  document.getElementById('step-login').style.display = 'block';
+  document.getElementById('step-reset1').style.display = 'none';
+  document.getElementById('step-reset2').style.display = 'none';
+  ['login-err','r1-err','r2-err','r2-ok','r2-warn'].forEach(id => {
+    const e = document.getElementById(id);
+    if(e) e.classList.remove('show');
+  });
+}
+
+function showReset(){
+  document.getElementById('step-login').style.display = 'none';
+  document.getElementById('step-reset1').style.display = 'block';
+  document.getElementById('step-reset2').style.display = 'none';
+}
+
+function showStep2(){
+  document.getElementById('step-reset1').style.display = 'none';
+  document.getElementById('step-reset2').style.display = 'block';
+}
+
+async function doLogin(){
+  if(!checkApiConfig()){
+    msgBox('login-err', '⚠️ URL de l\'API non configurée dans ce fichier. Contactez l\'administrateur du système.', 'err');
+    return;
+  }
+  const id = document.getElementById('ag-id').value.trim();
+  const pw = document.getElementById('ag-pass').value.trim();
+  const btn = document.getElementById('login-btn');
+  if(!id || !pw){ msgBox('login-err', t().errEmpty, 'err'); return; }
+  document.getElementById('login-err').classList.remove('show');
+  btn.classList.add('loading'); btn.disabled = true;
+  try {
+    const d = await api({ action:'connexionAgence', agencyId:id, motDePasse:pw });
+    if(d.success){
+      APP.agencyId = d.agencyId;
+      const rawNom = d.agencyNom != null ? String(d.agencyNom).trim() : '';
+      APP.agencyNom = rawNom || (d.agencyId || '');
+      APP.token = d.token;
+      APP.methodePaiement = d.methodePaiement != null ? String(d.methodePaiement) : '';
+      APP.loginTime = Date.now();
+      persistAgencySession();
+      refreshAgencyNameUi();
+      showScreen('app-screen');
+      updateSessionBar();
+      loadReservas();
+      startAgencyReservationPolling();
+    } else {
+      msgBox('login-err', d.error || t().errEmpty, 'err');
+    }
+  } catch(e){
+    msgBox('login-err', t().errConn + ' — ' + e.message, 'err');
+  } finally {
+    btn.classList.remove('loading'); btn.disabled = false;
+  }
+}
+
+async function doLogout(){
+  stopAgencyReservationPolling();
+  try { await api({ action:'deconnexionAgence', agencyId:APP.agencyId, token:APP.token }); } catch(e){}
+  clearAgencySessionAll();
+  APP.agencyId = APP.agencyNom = APP.token = null;
+  APP.methodePaiement = '';
+  APP.statCardFilter = 'all';
+  APP.reservas = [];
+  document.getElementById('ag-id').value = '';
+  document.getElementById('ag-pass').value = '';
+  showLogin();
+  showScreen('login-screen');
+}
+
+async function doDemandarCodigo(){
+  const id = document.getElementById('r1-id').value.trim();
+  const email = document.getElementById('r1-email').value.trim();
+  if(!id || !email){ msgBox('r1-err', t().errEmpty, 'err'); return; }
+  document.getElementById('r1-err').classList.remove('show');
+  const btn = document.getElementById('r1-btn');
+  btn.classList.add('loading'); btn.disabled = true;
+  try {
+    const d = await api({ action:'demanderCodeReset', identifiant:id, email });
+    if(d.success){
+      APP.resetId = id;
+      msgBox('r2-warn', '📧 ' + (d.message || 'Código enviado para o email.'), 'warn');
+      showStep2();
+    } else {
+      msgBox('r1-err', d.error || t().errConn, 'err');
+    }
+  } catch(e){
+    // Si l'action n'existe pas côté Apps Script, on informe l'utilisateur
+    msgBox('r1-err', 'Função não disponível. Contacte o administrador: nhcollectionliberdade@nh-hotels.com', 'err');
+  } finally {
+    btn.classList.remove('loading'); btn.disabled = false;
+  }
+}
+
+async function doConfirmarMDP(){
+  const code = document.getElementById('r2-code').value.trim();
+  const nw = document.getElementById('r2-new').value.trim();
+  const cf = document.getElementById('r2-cf').value.trim();
+  ['r2-err','r2-ok'].forEach(id => {
+    const e = document.getElementById(id);
+    if(e) e.classList.remove('show');
+  });
+  if(!code || !nw || !cf){ msgBox('r2-err', t().errEmpty, 'err'); return; }
+  if(nw.length < 8){ msgBox('r2-err', t().errPwShort, 'err'); return; }
+  if(nw !== cf){ msgBox('r2-err', t().errPwMatch, 'err'); return; }
+  const btn = document.getElementById('r2-btn');
+  btn.classList.add('loading'); btn.disabled = true;
+  try {
+    const d = await api({ action:'confirmerChangementMDP', identifiant:APP.resetId, code, nouveauPass:nw });
+    if(d.success){
+      msgBox('r2-ok', t().okPwChanged, 'ok');
+      setTimeout(() => showLogin(), 2500);
+    } else {
+      msgBox('r2-err', d.error || t().errConn, 'err');
+    }
+  } catch(e){
+    msgBox('r2-err', 'Função não disponível. Contacte o administrador.', 'err');
+  } finally {
+    btn.classList.remove('loading'); btn.disabled = false;
+  }
+}
+
+// Session bar update
+function updateSessionBar(){
+  const lt = APP.loginTime || parseInt(sessionStorage.getItem('nhc_ag_lt') || '0');
+  if(!lt) return;
+  const elapsed = Date.now() - lt;
+  const hours = Math.floor(elapsed / 3600000);
+  const mins = Math.floor((elapsed % 3600000) / 60000);
+  const el = document.getElementById('sb-time');
+  if(el) el.textContent = `Conectado há ${hours}h${mins < 10 ? '0'+mins : mins}m`;
+}
+
+/* ─── Nouvelles réservations : contrôle périodique (API) + Notification navigateur ─── */
+const NOTIF_POLL_MS = 60000;
+const NOTIF_LS = 'nhc_ag_notif_enabled';
+let _agencyPollTimer = null;
+let _notifBaselineReady = false;
+
+function getNotifEnabled(){
+  try { return localStorage.getItem(NOTIF_LS) === '1'; } catch (e) { return false; }
+}
+function setNotifEnabled(on){
+  try { localStorage.setItem(NOTIF_LS, on ? '1' : '0'); } catch (e) {}
+}
+function syncNotifCheckbox(){
+  const cb = document.getElementById('notif-enable');
+  if (cb) cb.checked = getNotifEnabled();
+}
+function onNotifToggleChange(){
+  const cb = document.getElementById('notif-enable');
+  const want = cb && cb.checked;
+  if (!want) {
+    setNotifEnabled(false);
+    return;
+  }
+  if (typeof Notification === 'undefined') {
+    toast(t().notifNoBrowser, 'error');
+    if (cb) cb.checked = false;
+    setNotifEnabled(false);
+    return;
+  }
+  const perm = Notification.permission;
+  if (perm === 'denied') {
+    toast(t().notifDenied, 'error');
+    if (cb) cb.checked = false;
+    setNotifEnabled(false);
+    return;
+  }
+  if (perm === 'default') {
+    Notification.requestPermission().then(function (p) {
+      if (p !== 'granted') {
+        if (cb) cb.checked = false;
+        setNotifEnabled(false);
+        if (p === 'denied') toast(t().notifDenied, 'error');
+      } else {
+        setNotifEnabled(true);
+      }
+    });
+    return;
+  }
+  setNotifEnabled(true);
+}
+function resetNotifTracking() {
+  APP.notifKnownIds = new Set();
+  _notifBaselineReady = false;
+}
+function stopAgencyReservationPolling() {
+  if (_agencyPollTimer) {
+    clearInterval(_agencyPollTimer);
+    _agencyPollTimer = null;
+  }
+  resetNotifTracking();
+}
+async function fetchAllReservationsUnfiltered() {
+  return api({
+    action: 'getReservationsAgence',
+    agencyId: APP.agencyId,
+    token: APP.token,
+    filtres: { statut: '', dateDebut: '', dateFin: '', destination: '' }
+  });
+}
+async function pollNewReservations() {
+  if (!APP.token || !checkApiConfig()) return;
+  try {
+    const d = await fetchAllReservationsUnfiltered();
+    if (!d.success) {
+      if (d.sessionExpired) doLogout();
+      return;
+    }
+    const list = d.reservations || [];
+    const ids = list.map(function (r) { return r && r.id; }).filter(Boolean);
+    const idSet = new Set(ids);
+    if (!_notifBaselineReady) {
+      APP.notifKnownIds = idSet;
+      _notifBaselineReady = true;
+      return;
+    }
+    const newIds = ids.filter(function (id) { return !APP.notifKnownIds.has(id); });
+    if (!newIds.length) return;
+    newIds.forEach(function (id) { APP.notifKnownIds.add(id); });
+    const T = t();
+    const showBrowser = getNotifEnabled() && typeof Notification !== 'undefined' && Notification.permission === 'granted';
+    if (showBrowser) {
+      if (newIds.length === 1) {
+        const r = list.find(function (x) { return x.id === newIds[0]; });
+        const body = r
+          ? (T.notifBodyRef || 'Ref.') + ' ' + r.id + ' · ' + (r.clientNom || '—') + ' · ' + fmtD(r.dateTransfer)
+          : String(newIds[0]);
+        try {
+          new Notification(T.notifTitle || 'Booking', { body: body, tag: 'nlp-resa-' + newIds[0] });
+        } catch (e) {}
+      } else {
+        try {
+          new Notification(T.notifTitle || 'Booking', { body: String(newIds.length) + ' ' + (T.notifMany || '') });
+        } catch (e) {}
+      }
+    } else {
+      toast('🔔 ' + (newIds.length === 1 ? (T.notifTitle + ' — ' + newIds[0]) : (String(newIds.length) + ' ' + T.notifMany)), 'notif');
+    }
+    loadReservas({ quiet: true });
+  } catch (e) {}
+}
+function startAgencyReservationPolling() {
+  stopAgencyReservationPolling();
+  if (!APP.token) return;
+  pollNewReservations();
+  _agencyPollTimer = setInterval(pollNewReservations, NOTIF_POLL_MS);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RÉSERVATIONS
+// ═══════════════════════════════════════════════════════════════════
+async function loadReservas(opts){
+  opts = opts || {};
+  const quiet = !!opts.quiet;
+  if(!quiet){
+    document.getElementById('tbl-wrap').innerHTML = `<div class="loader"><div class="loader-ring"></div><p>${t().loading}</p></div>`;
+    document.getElementById('pagination').style.display = 'none';
+  }
+  const filtres = {
+    statut:      document.getElementById('f-statut').value,
+    dateDebut:   document.getElementById('f-ds').value,
+    dateFin:     document.getElementById('f-de').value,
+    destination: document.getElementById('f-dest').value
+  };
+  try {
+    const d = await api({
+      action:'getReservationsAgence',
+      agencyId: APP.agencyId,
+      token: APP.token,
+      filtres
+    });
+    if(!d.success){
+      if(d.sessionExpired){ doLogout(); return; }
+      if(!quiet){
+        document.getElementById('tbl-wrap').innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">${d.error}</div></div>`;
+      }
+      return;
+    }
+    APP.reservas = d.reservations || [];
+    APP.page = 1;
+    const s = d.stats || {};
+    const setEl = (id, v) => { const e = document.getElementById(id); if(e) e.textContent = v || 0; };
+    setEl('s-total', s.total || APP.reservas.length);
+    setEl('s-pend', s.pendentes || APP.reservas.filter(r => r.statut === 'pendente').length);
+    setEl('s-conf', s.confirmadas || APP.reservas.filter(r => r.statut === 'confirmado').length);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const upcoming = APP.reservas.filter(r =>
+      r.statut !== 'realizado' && r.statut !== 'cancelado' &&
+      parseDate(r.dateTransfer) && parseDate(r.dateTransfer) >= today
+    );
+    setEl('s-upcoming', upcoming.length);
+    document.getElementById('tc-all').textContent = APP.reservas.length;
+    document.getElementById('tc-upcoming').textContent = upcoming.length;
+    renderTable();
+    refreshStatCardFilterUi();
+    if(APP.curTab === 'upcoming') renderUpcoming();
+  } catch(e){
+    if(!quiet){
+      document.getElementById('tbl-wrap').innerHTML = `
+        <div class="empty">
+          <div class="empty-icon">🔌</div>
+          <div class="empty-title">${t().errConn}</div>
+          <div class="empty-sub" style="max-width:400px;margin:0 auto;word-break:break-word">${e.message}</div>
+        </div>`;
+    }
+  }
+}
+
+function getTableFilterRows(){
+  if(APP.statCardFilter !== 'upcoming') return APP.reservas;
+  const today = new Date(); today.setHours(0,0,0,0);
+  return APP.reservas.filter(r =>
+    r.statut !== 'realizado' && r.statut !== 'cancelado' &&
+    parseDate(r.dateTransfer) && parseDate(r.dateTransfer) >= today
+  );
+}
+function refreshStatCardFilterUi(){
+  document.querySelectorAll('.stats-grid .stat-card').forEach(c => c.classList.remove('active-filter'));
+  if(APP.statCardFilter == null) return;
+  const map = { all:'s-total', pendente:'s-pend', confirmado:'s-conf', upcoming:'s-upcoming' };
+  const sid = map[APP.statCardFilter];
+  if(!sid) return;
+  const el = document.getElementById(sid);
+  const card = el && el.closest('.stat-card');
+  if(card) card.classList.add('active-filter');
+}
+function filterByStatCard(mode){
+  APP.statCardFilter = mode;
+  const st = document.getElementById('f-statut');
+  if(st){
+    if(mode === 'all' || mode === 'upcoming') st.value = '';
+    else st.value = mode;
+  }
+  APP.page = 1;
+  loadReservas();
+}
+function applyFilters(){
+  const st = document.getElementById('f-statut').value;
+  if(st === '') APP.statCardFilter = 'all';
+  else if(st === 'pendente') APP.statCardFilter = 'pendente';
+  else if(st === 'confirmado') APP.statCardFilter = 'confirmado';
+  else APP.statCardFilter = null;
+  APP.page = 1;
+  loadReservas();
+}
+function resetFilters(){
+  APP.statCardFilter = 'all';
+  ['f-statut','f-ds','f-de','f-dest'].forEach(id => {
+    const e = document.getElementById(id); if(e) e.value = '';
+  });
+  loadReservas();
+}
+
+function parceiroSortMark(key){
+  if(APP.tblSortKey !== key) return '';
+  return APP.tblSortDir === 1 ? ' ▲' : ' ▼';
+}
+function toggleParceiroSort(key){
+  if(APP.tblSortKey === key) APP.tblSortDir = -APP.tblSortDir;
+  else { APP.tblSortKey = key; APP.tblSortDir = 1; }
+  APP.page = 1;
+  renderTable();
+}
+function sortParceiroData(rows){
+  const k = APP.tblSortKey;
+  if(!k) return rows;
+  const dir = APP.tblSortDir || 1;
+  const num = x => { const v = parseFloat(String(x == null ? '' : x).replace(',', '.')); return isNaN(v) ? 0 : v; };
+  const cmp = (a, b) => {
+    let r = 0;
+    switch(k){
+      case 'id': r = String(a.id || '').localeCompare(String(b.id || '')); break;
+      case 'client': r = String(a.clientNom || '').toLowerCase().localeCompare(String(b.clientNom || '').toLowerCase()); break;
+      case 'date': r = String(a.dateTransfer || '').localeCompare(String(b.dateTransfer || '')); break;
+      case 'hour': r = String(a.heureTransfer || '').localeCompare(String(b.heureTransfer || '')); break;
+      case 'route': r = (String(a.pointDepart || '') + ' → ' + String(a.destination || '')).toLowerCase().localeCompare((String(b.pointDepart || '') + ' → ' + String(b.destination || '')).toLowerCase()); break;
+      case 'pax': r = (parseInt(a.personnes, 10) || 0) - (parseInt(b.personnes, 10) || 0); break;
+      case 'price': r = num(a.prixFinal) - num(b.prixFinal); break;
+      case 'statut': r = String(a.statut || '').localeCompare(String(b.statut || '')); break;
+      default: r = 0;
+    }
+    return dir * r;
+  };
+  return [...rows].sort(cmp);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TABLE
+// ═══════════════════════════════════════════════════════════════════
+function renderTable(){
+  const T2 = t(), data = sortParceiroData(getTableFilterRows()), total = data.length;
+  if(!total){
+    document.getElementById('tbl-wrap').innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">📭</div>
+        <div class="empty-title">${T2.emptyTitle}</div>
+        <div class="empty-sub">${T2.emptySub}</div>
+      </div>`;
+    document.getElementById('pagination').style.display = 'none';
+    return;
+  }
+  const pages = Math.ceil(total / APP.perPage);
+  const start = (APP.page - 1) * APP.perPage;
+  const end = Math.min(start + APP.perPage, total);
+  const slice = data.slice(start, end);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+
+  let html = `<table>
+    <thead><tr>
+      <th class="th-sort" onclick="toggleParceiroSort('id')">${T2.colRef}${parceiroSortMark('id')}</th>
+      <th class="th-sort" onclick="toggleParceiroSort('client')">${T2.colClient}${parceiroSortMark('client')}</th>
+      <th class="th-sort" onclick="toggleParceiroSort('date')">${T2.colDate}${parceiroSortMark('date')}</th>
+      <th class="th-sort" onclick="toggleParceiroSort('hour')">${T2.colHour}${parceiroSortMark('hour')}</th>
+      <th class="th-sort" onclick="toggleParceiroSort('route')">${T2.colRoute}${parceiroSortMark('route')}</th>
+      <th class="th-sort" onclick="toggleParceiroSort('pax')">${T2.colPax}${parceiroSortMark('pax')}</th>
+      <th class="th-sort" onclick="toggleParceiroSort('price')">${T2.colPrice}${parceiroSortMark('price')}</th>
+      <th class="th-sort" onclick="toggleParceiroSort('statut')">${T2.colStatus}${parceiroSortMark('statut')}</th>
+      <th>${T2.colActs}</th>
+    </tr></thead><tbody>`;
+
+  for(const r of slice){
+    const blocked = r.statut === 'realizado';
+    const rDate = parseDate(r.dateTransfer);
+    const isSoon = rDate && rDate >= today && rDate <= tomorrow &&
+                   r.statut !== 'realizado' && r.statut !== 'cancelado';
+    const isNew = r.nonAttribuee;
+    let acts = `<button class="btn btn-ghost btn-sm" onclick="openDetail('${r.id}')" title="Detalhes">👁</button>`;
+    if(!blocked){
+      if(r.statut !== 'confirmado')
+        acts += `<button class="btn btn-success btn-sm" onclick="quickConfirm('${r.id}')" title="${T2.btnConfirm}">✅</button>`;
+      if(r.statut !== 'cancelado')
+        acts += `<button class="btn btn-danger btn-sm" onclick="quickCancel('${r.id}')" title="${T2.btnCancel}">❌</button>`;
+    }
+    html += `<tr>
+      <td class="mono">${r.id}</td>
+      <td class="bold">
+        ${isNew ? '<span class="badge-new">NEW</span>' : ''}
+        ${isSoon ? '<span class="badge-soon">SOON</span>' : ''}
+        ${r.clientNom || '—'}
+      </td>
+      <td>${fmtD(r.dateTransfer)}</td>
+      <td>${r.heureTransfer || '—'}</td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis">
+        ${oIco(r.origineType)} ${r.pointDepart || '—'} → ${r.destination || '—'}
+      </td>
+      <td>${r.personnes || '—'}👤 ${r.malas || '0'}🧳</td>
+      <td><strong>${r.prixFinal ? r.prixFinal + '€' : '—'}</strong></td>
+      <td>${badge(r.statut)}</td>
+      <td><div class="row-acts">${acts}</div></td>
+    </tr>`;
+  }
+  html += `</tbody></table>`;
+  document.getElementById('tbl-wrap').innerHTML = html;
+  document.getElementById('pagination').style.display = 'flex';
+  document.getElementById('page-info').textContent = `${start+1}–${end} ${T2.pageOf} ${total}`;
+
+  let btns = `<button class="page-btn" onclick="goPage(${APP.page-1})" ${APP.page<=1?'disabled':''}>‹</button>`;
+  for(let p = Math.max(1, APP.page-2); p <= Math.min(pages, APP.page+2); p++){
+    btns += `<button class="page-btn ${p===APP.page?'active':''}" onclick="goPage(${p})">${p}</button>`;
+  }
+  btns += `<button class="page-btn" onclick="goPage(${APP.page+1})" ${APP.page>=pages?'disabled':''}>›</button>`;
+  document.getElementById('page-btns').innerHTML = btns;
+}
+
+function goPage(p){
+  const pages = Math.ceil(getTableFilterRows().length / APP.perPage);
+  if(p < 1 || p > pages) return;
+  APP.page = p; renderTable();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TIMELINE UPCOMING
+// ═══════════════════════════════════════════════════════════════════
+function renderUpcoming(){
+  const T2 = t();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+  const upcoming = APP.reservas
+    .filter(r => r.statut !== 'realizado' && r.statut !== 'cancelado')
+    .filter(r => { const d = parseDate(r.dateTransfer); return d && d >= today; })
+    .sort((a, b) => {
+      const da = parseDate(a.dateTransfer), db = parseDate(b.dateTransfer);
+      if(da < db) return -1; if(da > db) return 1;
+      return (a.heureTransfer||'').localeCompare(b.heureTransfer||'');
+    });
+  const wrap = document.getElementById('timeline-wrap');
+  if(!upcoming.length){
+    wrap.innerHTML = `<div class="empty"><div class="empty-icon">🗓</div><div class="empty-title">${T2.upcomingEmpty}</div></div>`;
+    return;
+  }
+  // Grouper par jour
+  const groups = {};
+  upcoming.forEach(r => {
+    const k = r.dateTransfer || '';
+    if(!groups[k]) groups[k] = [];
+    groups[k].push(r);
+  });
+  let html = '';
+  Object.keys(groups).sort().forEach(dateKey => {
+    const d = parseDate(dateKey);
+    const diffDays = Math.round((d - today) / 86400000);
+    let labelDate;
+    if(diffDays === 0) labelDate = `📅 ${T2.today} — ${fmtD(dateKey)}`;
+    else if(diffDays === 1) labelDate = `🌅 ${T2.tomorrow} — ${fmtD(dateKey)}`;
+    else labelDate = fmtD(dateKey);
+    html += `<div class="timeline-day"><div class="timeline-date">${labelDate}</div><div class="timeline-cards">`;
+    groups[dateKey].forEach(r => {
+      const isToday = diffDays === 0;
+      const isUrgent = diffDays <= 1 && r.statut === 'pendente';
+      html += `<div class="tl-card ${isUrgent?'urgent':isToday?'today':''}" onclick="openDetail('${r.id}')">
+        <div><div class="tl-time">${(r.heureTransfer||'—').slice(0,5)}</div><div class="tl-time-lbl">h</div></div>
+        <div class="tl-divider"></div>
+        <div class="tl-body">
+          <div class="tl-ref">${r.id}</div>
+          <div class="tl-client">${r.clientNom||'—'}</div>
+          <div class="tl-route">${oIco(r.origineType)} ${r.pointDepart||'—'} → ${r.destination||'—'}</div>
+          <div class="tl-meta">
+            <span>👤 ${r.personnes||'—'}</span>
+            <span>🧳 ${r.malas||'0'}</span>
+            ${r.numVol ? `<span>✈️ ${r.numVol}</span>` : ''}
+            <span>💶 ${r.prixFinal ? r.prixFinal+' €' : '—'}</span>
+          </div>
+        </div>
+        <div class="tl-acts">${badge(r.statut)}</div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+  wrap.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MODAL DÉTAIL
+// ═══════════════════════════════════════════════════════════════════
+function openDetail(id){
+  const idx = APP.reservas.findIndex(x => x.id === id);
+  if(idx === -1) return;
+  APP.curIdx = idx;
+  renderModal(idx);
+  openModal('ov-modal');
+}
+
+function navModal(dir){
+  const newIdx = APP.curIdx + dir;
+  if(newIdx < 0 || newIdx >= APP.reservas.length) return;
+  APP.curIdx = newIdx;
+  renderModal(newIdx);
+}
+
+function renderModal(idx){
+  const r = APP.reservas[idx];
+  if(!r) return;
+  APP.curId = r.id;
+  APP.curWaResa = r;
+  const T2 = t();
+  const total = APP.reservas.length;
+
+  document.getElementById('m-id').textContent = r.id;
+  document.getElementById('modal-nav-pos').textContent = `${idx+1}/${total}`;
+  document.getElementById('btn-nav-prev').disabled = idx <= 0;
+  document.getElementById('btn-nav-next').disabled = idx >= total - 1;
+
+  // Info grid
+  const rows = [
+    [T2.lblClient, r.clientNom || '—'],
+    [T2.lblEmail, r.clientEmail || '—'],
+    [T2.lblPhone, r.telephone || '—'],
+    [T2.lblOta, r.numReservaOta || '—'],
+    [T2.lblDate, `${fmtD(r.dateTransfer)} ${r.heureTransfer || ''}`],
+    [T2.lblPaxMalas, `${r.personnes || '—'} pax · ${r.malas || '0'} 🧳`],
+    [T2.lblOrigin, `${oIco(r.origineType)} ${r.pointDepart || '—'}`],
+    r.adresseDepart ? [T2.lblAddrDep, r.adresseDepart] : null,
+    [T2.lblDest, r.destination || '—'],
+    r.adresseDestination ? [T2.lblAddrDest, r.adresseDestination] : null,
+    r.numVol ? [T2.lblFlight, `✈️ ${r.numVol}`] : null,
+    r.numTransport ? [T2.lblTransport, `🚌 ${r.numTransport}`] : null,
+  ].filter(Boolean);
+
+  let gridHtml = rows.map(([lbl, val]) =>
+    `<div class="info-item"><div class="info-label">${lbl}</div><div class="info-value">${val}</div></div>`
+  ).join('');
+  gridHtml += `<div class="info-item"><div class="info-label">${T2.lblPrice}</div><div class="info-value gold">${r.prixFinal ? r.prixFinal+' €' : '—'}</div></div>`;
+  gridHtml += `<div class="info-item"><div class="info-label">${T2.lblStatus}</div><div class="info-value">${badge(r.statut)}</div></div>`;
+  if(r.commentaires) gridHtml += `<div class="info-item full"><div class="info-label">${T2.lblComments}</div><div class="info-value">${r.commentaires}</div></div>`;
+  document.getElementById('m-grid').innerHTML = gridHtml;
+
+  // Pré-remplir prix & commentaire
+  document.getElementById('m-prix').value = r.prixFinal || '';
+  document.getElementById('m-comment').value = '';
+  const msgEl = document.getElementById('m-msg');
+  if(msgEl) msgEl.className = 'modal-msg';
+
+  // WA HÔTEL — langue du message
+  const wpl = document.getElementById('wa-prev-lang');
+  if(wpl) wpl.value = APP.lang;
+
+  // Calendrier — reservas futures non annulées
+  const rDate = parseDate(r.dateTransfer);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const showCal = rDate && rDate >= today && r.statut !== 'cancelado' && r.statut !== 'realizado';
+  document.getElementById('cal-box').style.display = showCal ? 'block' : 'none';
+
+  // Boutons selon statut
+  const blocked = r.statut === 'realizado';
+  document.getElementById('btn-confirm-r').style.display = (!blocked && r.statut !== 'confirmado') ? 'inline-flex' : 'none';
+  document.getElementById('btn-cancel-r').style.display = (!blocked && r.statut !== 'cancelado') ? 'inline-flex' : 'none';
+  document.getElementById('btn-price-r').style.display = blocked ? 'none' : 'inline-flex';
+  document.getElementById('prix-field').style.display = blocked ? 'none' : 'block';
+  document.getElementById('comment-field').style.display = blocked ? 'none' : 'block';
+  document.getElementById('lbl-modal-actions').style.display = blocked ? 'none' : 'flex';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+// WHATSAPP HÔTEL — Confirmer à l'hôtel
+// ═══════════════════════════════════════════════════════════════════
+function normaliserDigitsPourWaMe(s){
+  s=String(s||'').trim();
+  if(!s)return'';
+  s=s.replace(/^tel\s*:\s*/i,'').replace(/^whatsapp\s*:\s*/i,'').replace(/^wa\s*:\s*/i,'').trim();
+  s=s.replace(/[\s\u00A0\u2007\u202F\-\.\(\)\u2010\u2011\u2012\u2013\u2014\u2015]/g,'');
+  if(!s)return'';
+  if(s.slice(0,2)==='00')s=s.slice(2);
+  if(s.charAt(0)==='+')s=s.slice(1);
+  return s.replace(/\D/g,'');
+}
+function openWA(){
+  if(!APP.curWaResa) return;
+  const langCode = getWaPreviewLang();
+  const fn = WA_HOTEL[langCode] || WA_HOTEL['PT'];
+  let msg = fn(APP.curWaResa, APP.agencyNom || APP.agencyId);
+  const tel = normaliserDigitsPourWaMe(HOTEL_WA_NUMBER);
+  const url = tel
+    ? `https://wa.me/${tel}?text=${encodeURIComponent(msg)}`
+    : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+  toast(t().toastHotelWa, 'hotel-wa');
+}
+
+function copyHotelMsg(){
+  if(!APP.curWaResa) return;
+  const langCode = getWaPreviewLang();
+  const fn = WA_HOTEL[langCode] || WA_HOTEL['PT'];
+  let msg = fn(APP.curWaResa, APP.agencyNom || APP.agencyId);
+  navigator.clipboard.writeText(msg).then(() => {
+    toast(t().toastCopy, 'success');
+  }).catch(() => {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = msg; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast(t().toastCopy, 'success');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CALENDRIER
+// ═══════════════════════════════════════════════════════════════════
+function getCalData(){
+  const r = APP.curWaResa; if(!r) return null;
+  const date = r.dateTransfer || '';
+  const heure = r.heureTransfer || '10:00';
+  const [y, mo, d] = (date || '2025-01-01').split('-');
+  const [hh, mm] = (heure || '10:00').split(':');
+  const startDt = new Date(+y, +mo-1, +d, +hh, +mm);
+  const endDt = new Date(startDt.getTime() + 60 * 60 * 1000);
+  const pad = n => String(n).padStart(2, '0');
+  const fmt = dt => `${dt.getFullYear()}${pad(dt.getMonth()+1)}${pad(dt.getDate())}T${pad(dt.getHours())}${pad(dt.getMinutes())}00`;
+  return {
+    r, startDt, endDt,
+    start: fmt(startDt), end: fmt(endDt),
+    title: `Transfer ${r.id} — ${r.clientNom || ''}`
+  };
+}
+
+function addToGoogleCalendar(){
+  const c = getCalData(); if(!c) return;
+  const details = `${oIco(c.r.origineType)} ${c.r.pointDepart||''} → ${c.r.destination||''}\n👤 ${c.r.personnes||'—'} pax · 🧳 ${c.r.malas||'0'}\n💶 ${c.r.prixFinal ? c.r.prixFinal+' €' : '—'}\n📞 ${c.r.telephone||'—'}${c.r.numVol ? '\n✈️ '+c.r.numVol : ''}`;
+  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(c.title)}&dates=${c.start}/${c.end}&details=${encodeURIComponent(details)}&location=${encodeURIComponent(c.r.adresseDepart || c.r.pointDepart || '')}`;
+  window.open(url, '_blank');
+}
+
+function addToIcal(){
+  const c = getCalData(); if(!c) return;
+  const uid = `${c.r.id}-${Date.now()}@nh-hotels.com`;
+  const details = `${oIco(c.r.origineType)} ${c.r.pointDepart||''} → ${c.r.destination||''}\\n👤 ${c.r.personnes||'—'} pax · 🧳 ${c.r.malas||'0'}\\n💶 ${c.r.prixFinal ? c.r.prixFinal+' €' : '—'}\\n📞 ${c.r.telephone||'—'}`;
+  const ics = `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//NH Collection Lisboa Liberdade//Transfer Portal//PT\r\nBEGIN:VEVENT\r\nUID:${uid}\r\nDTSTAMP:${c.start}Z\r\nDTSTART:${c.start}\r\nDTEND:${c.end}\r\nSUMMARY:${c.title}\r\nDESCRIPTION:${details}\r\nLOCATION:${(c.r.adresseDepart||c.r.pointDepart||'').replace(/,/g,'\\,')}\r\nEND:VEVENT\r\nEND:VCALENDAR`;
+  const blob = new Blob([ics], {type:'text/calendar;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url;
+  a.download = `transfer-${c.r.id}.ics`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ACTIONS RÉSERVATION
+// ═══════════════════════════════════════════════════════════════════
+async function doAction(nouveauStatut){
+  if(!APP.curId) return;
+  const prix = document.getElementById('m-prix').value;
+  const com = document.getElementById('m-comment').value.trim();
+  const bc = document.getElementById('btn-confirm-r');
+  const bx = document.getElementById('btn-cancel-r');
+  const bp = document.getElementById('btn-price-r');
+  if(bc) bc.disabled = true;
+  if(bx) bx.disabled = true;
+  if(bp) bp.disabled = true;
+  try {
+    const d = await api({
+      action: 'mettreAJourStatut',
+      agencyId: APP.agencyId, token: APP.token,
+      reservationId: APP.curId,
+      nouveauStatut, nouveauPrix: prix, commentaire: com
+    });
+    if(d.success){
+      const isConf = nouveauStatut === 'confirmado';
+      msgModal(isConf ? t().msgConf : t().msgCanc, isConf ? 'success' : 'error');
+      toast(isConf ? t().toastConf : t().toastCanc, isConf ? 'success' : 'error');
+      const idx = APP.reservas.findIndex(r => r.id === APP.curId);
+      if(idx !== -1){
+        APP.reservas[idx].statut = nouveauStatut;
+        if(prix) APP.reservas[idx].prixFinal = prix;
+      }
+      renderTable();
+      setTimeout(() => closeModal('ov-modal'), 2000);
+    } else {
+      if(d.sessionExpired){ closeModal('ov-modal'); doLogout(); return; }
+      msgModal('❌ ' + (d.error || 'Erro'), 'error');
+    }
+  } catch(e){
+    msgModal('❌ ' + e.message, 'error');
+  } finally {
+    if(bc) bc.disabled = false;
+    if(bx) bx.disabled = false;
+    if(bp) bp.disabled = false;
+  }
+}
+
+async function doChangePrice(){
+  if(!APP.curId) return;
+  const prix = document.getElementById('m-prix').value;
+  const com = document.getElementById('m-comment').value.trim();
+  if(!prix || isNaN(+prix) || +prix < 0){
+    msgModal('⚠️ Introduza um preço válido (número positivo)', 'error'); return;
+  }
+  const r = APP.reservas.find(x => x.id === APP.curId);
+  const bc = document.getElementById('btn-confirm-r');
+  const bx = document.getElementById('btn-cancel-r');
+  const bp = document.getElementById('btn-price-r');
+  if(bc) bc.disabled = true;
+  if(bx) bx.disabled = true;
+  if(bp) bp.disabled = true;
+  try {
+    const d = await api({
+      action: 'mettreAJourStatut',
+      agencyId: APP.agencyId, token: APP.token,
+      reservationId: APP.curId,
+      nouveauStatut: r ? r.statut : 'pendente',
+      nouveauPrix: prix, commentaire: com
+    });
+    if(d.success){
+      msgModal(t().msgPrice, 'success');
+      toast(t().toastPrice, 'success');
+      const idx = APP.reservas.findIndex(x => x.id === APP.curId);
+      if(idx !== -1) APP.reservas[idx].prixFinal = prix;
+      renderTable();
+    } else {
+      if(d.sessionExpired){ closeModal('ov-modal'); doLogout(); return; }
+      msgModal('❌ ' + (d.error || 'Erro'), 'error');
+    }
+  } catch(e){
+    msgModal('❌ ' + e.message, 'error');
+  } finally {
+    if(bc) bc.disabled = false;
+    if(bx) bx.disabled = false;
+    if(bp) bp.disabled = false;
+  }
+}
+
+async function quickConfirm(id){
+  APP.curId = id;
+  document.getElementById('m-prix').value = '';
+  document.getElementById('m-comment').value = '';
+  await doAction('confirmado');
+}
+
+async function quickCancel(id){
+  if(!confirm(t().confirmCancel + ' ' + id + ' ?')) return;
+  APP.curId = id;
+  document.getElementById('m-comment').value = '';
+  await doAction('cancelado');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EXPORT EXCEL (SheetJS)
+// ═══════════════════════════════════════════════════════════════════
+function exportExcel(){
+  const T2 = t();
+  const viewRows = getTableFilterRows();
+  if(!APP.reservas.length){ toast(T2.emptyTitle, 'error'); return; }
+  if(!viewRows.length){ toast(T2.emptyTitle, 'error'); return; }
+  if(typeof XLSX === 'undefined'){ toast('SheetJS not loaded', 'error'); return; }
+  const hdrs = [T2.colRef, T2.lblClient, T2.lblEmail, T2.lblPhone, 'OTA',
+    'Data', 'Hora', T2.lblOrigin, 'Morada Partida', T2.lblDest, 'Morada Destino',
+    'Pax', 'Malas', T2.lblFlight, T2.lblTransport, T2.lblPrice, T2.colStatus, T2.lblComments];
+  const rows = viewRows.map(r => [
+    r.id, r.clientNom, r.clientEmail, r.telephone, r.numReservaOta,
+    fmtD(r.dateTransfer), r.heureTransfer,
+    r.pointDepart, r.adresseDepart||'', r.destination, r.adresseDestination||'',
+    r.personnes, r.malas, r.numVol||'', r.numTransport||'',
+    r.prixFinal ? Number(r.prixFinal) : 0, r.statut, r.commentaires||''
+  ]);
+  const ws = XLSX.utils.aoa_to_sheet([hdrs, ...rows]);
+  const colWidths = [14,22,28,16,14,12,8,20,26,20,26,5,5,12,12,8,12,28];
+  ws['!cols'] = colWidths.map(w => ({wch:w}));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Reservas');
+  // Aba 2: Próximas
+  const today = new Date(); today.setHours(0,0,0,0);
+  const upcoming = APP.reservas
+    .filter(r => r.statut !== 'realizado' && r.statut !== 'cancelado' &&
+                 parseDate(r.dateTransfer) && parseDate(r.dateTransfer) >= today)
+    .sort((a,b) => (a.dateTransfer||'').localeCompare(b.dateTransfer||''));
+  if(upcoming.length){
+    const wsU = XLSX.utils.aoa_to_sheet([hdrs, ...upcoming.map(r => [
+      r.id, r.clientNom, r.clientEmail, r.telephone, r.numReservaOta,
+      fmtD(r.dateTransfer), r.heureTransfer, r.pointDepart, r.adresseDepart||'',
+      r.destination, r.adresseDestination||'', r.personnes, r.malas,
+      r.numVol||'', r.numTransport||'', r.prixFinal ? Number(r.prixFinal) : 0,
+      r.statut, r.commentaires||''
+    ])]);
+    wsU['!cols'] = ws['!cols'];
+    XLSX.utils.book_append_sheet(wb, wsU, 'A Realizar');
+  }
+  const fname = `NL_Agencia_${APP.agencyId}_${new Date().toISOString().slice(0,10)}.xlsx`;
+  XLSX.writeFile(wb, fname);
+  toast(T2.toastExcel, 'success');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EXPORT PDF
+// ═══════════════════════════════════════════════════════════════════
+function exportPDF(){
+  const T2 = t();
+  if(!APP.reservas.length){ toast(T2.emptyTitle, 'error'); return; }
+  const viewRows = getTableFilterRows();
+  if(!viewRows.length){ toast(T2.emptyTitle, 'error'); return; }
+  const today = new Date(); today.setHours(0,0,0,0);
+  const upcoming = APP.reservas
+    .filter(r => r.statut !== 'realizado' && r.statut !== 'cancelado' &&
+                 parseDate(r.dateTransfer) && parseDate(r.dateTransfer) >= today)
+    .sort((a,b) => (a.dateTransfer||'').localeCompare(b.dateTransfer||'')
+                || (a.heureTransfer||'').localeCompare(b.heureTransfer||''));
+
+  const rows = (arr) => arr.map(r =>
+    `<tr><td>${r.id}</td><td>${r.clientNom||'—'}</td><td>${fmtD(r.dateTransfer)}</td><td>${r.heureTransfer||'—'}</td><td>${r.pointDepart||'—'}</td><td>${r.destination||'—'}</td><td>${r.personnes||'—'}</td><td>${r.prixFinal ? r.prixFinal+'€' : '—'}</td><td>${r.statut}</td></tr>`
+  ).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>
+    body{font-family:Arial,sans-serif;font-size:12px;margin:20px;color:#1A1A1A}
+    h1{background:#0D2137;color:#C9A84C;padding:14px 20px;border-radius:8px 8px 0 0;margin:0;font-size:16px;letter-spacing:.04em}
+    .sub{color:#6B7280;font-size:11px;margin:6px 0 18px;text-align:right}
+    h3{font-size:13px;font-weight:700;color:#0D2137;margin:20px 0 8px;border-left:4px solid #C9A84C;padding-left:10px}
+    table{width:100%;border-collapse:collapse;margin-bottom:24px}
+    th{background:#0D2137;color:#C9A84C;padding:8px 10px;font-size:10px;text-align:left;letter-spacing:.08em;text-transform:uppercase}
+    td{padding:7px 10px;border-bottom:1px solid #E5EDF5;font-size:11px}
+    tr:nth-child(even) td{background:#F7F9FB}
+    .footer{text-align:center;font-size:10px;color:#9CA3AF;border-top:1px solid #E5EDF5;padding-top:10px;margin-top:8px}
+  </style></head><body>
+  <h1>🏨 NH Collection Lisboa Liberdade — ${APP.agencyNom}</h1>
+  <div class="sub">${new Date().toLocaleDateString('pt-PT',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
+  ${upcoming.length ? `<h3>🗓 ${T2.upcomingTitle} (${upcoming.length})</h3>
+  <table><thead><tr><th>Ref.</th><th>Cliente</th><th>Data</th><th>Hora</th><th>Partida</th><th>Destino</th><th>Pax</th><th>Preço</th><th>Estado</th></tr></thead>
+  <tbody>${rows(upcoming)}</tbody></table>` : ''}
+  <h3>📋 ${T2.cardTtl} (${viewRows.length})</h3>
+  <table><thead><tr><th>Ref.</th><th>Cliente</th><th>Data</th><th>Hora</th><th>Partida</th><th>Destino</th><th>Pax</th><th>Preço</th><th>Estado</th></tr></thead>
+  <tbody>${rows(viewRows)}</tbody></table>
+  <div class="footer">NH Collection Lisboa Liberdade · Agência: ${APP.agencyId} · Gerado em ${new Date().toLocaleString('pt-PT')}</div>
+  </body></html>`;
+
+  const w = window.open('', '_blank');
+  if(!w){ toast('Pop-up bloqueado — active os pop-ups', 'error'); return; }
+  w.document.write(html); w.document.close(); w.print();
+  toast(T2.toastPdf, 'success');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// INIT — Restaurer session
+// ═══════════════════════════════════════════════════════════════════
+(function(){
+  // Vérifier config API
+  checkApiConfig();
+
+  const { id, nom, tok, lt, meth } = readAgencySession();
+  if(id && tok){
+    if(isAgencyIdleExpired()){
+      clearAgencySessionAll();
+    } else {
+      const nm = (nom && String(nom).trim()) ? nom.trim() : '';
+      APP.agencyId = id; APP.agencyNom = nm || id; APP.token = tok;
+      APP.methodePaiement = meth != null ? String(meth) : '';
+      APP.loginTime = lt || Date.now();
+      try {
+        sessionStorage.setItem('nhc_ag_id', id);
+        sessionStorage.setItem('nhc_ag_nom', APP.agencyNom);
+        sessionStorage.setItem('nhc_ag_tok', tok);
+        sessionStorage.setItem('nhc_ag_lt', String(APP.loginTime));
+      } catch (e) {}
+      bumpAgencyActivity();
+      refreshAgencyNameUi();
+      persistAgencySession();
+      showScreen('app-screen');
+      updateSessionBar();
+      loadReservas();
+      startAgencyReservationPolling();
+    }
+  }
+
+  setInterval(updateSessionBar, 60000);
+
+  let _agActT = 0;
+  function throttledAgActivity(){
+    const n = Date.now();
+    if(n - _agActT < 30000) return;
+    _agActT = n;
+    bumpAgencyActivity();
+  }
+  ['click','keydown','scroll','touchstart','mousemove'].forEach(ev => {
+    document.addEventListener(ev, throttledAgActivity, { passive: true });
+  });
+  window.addEventListener('pageshow', () => { if(APP.token) bumpAgencyActivity(); });
+
+  // Português (Portugal) como idioma padrão em todas as áreas
+  setLang('PT', 'login');
+  setLang('PT', 'app');
+  syncNotifCheckbox();
+})();
+
+// Clavier : navigation modale
+document.addEventListener('keydown', e => {
+  const modal = document.getElementById('ov-modal');
+  if(!modal || !modal.classList.contains('open')) return;
+  if(e.key === 'ArrowLeft')  navModal(-1);
+  if(e.key === 'ArrowRight') navModal(1);
+  if(e.key === 'Escape')     closeModal('ov-modal');
+});
+
+// Footer email (anti-obfuscation)
+(function(){
+  const el = document.getElementById('lf');
+  if(el){ el.innerHTML='NH Collection Lisboa Liberdade &middot; <a href="mailto:nhcollectionliberdade@nh-hotels.com">nhcollectionliberdade@nh-hotels.com</a>'; }
+})();
+</script>
+<script>
+(function(){
+  var KEY='nhc_agency_theme';
+  function setAgencyTheme(mode){
+    var dark=mode==='dark';
+    if(dark) document.documentElement.setAttribute('data-theme','dark');
+    else document.documentElement.removeAttribute('data-theme');
+    try{localStorage.setItem(KEY,dark?'dark':'light');}catch(e){}
+    var m=document.querySelector('meta[name="theme-color"]');
+    if(m) m.setAttribute('content', dark?'#0b121f':'#EEF2F7');
+    document.querySelectorAll('[data-theme-pick="light"]').forEach(function(b){
+      b.classList.toggle('on',!dark); b.setAttribute('aria-pressed',!dark?'true':'false');
+    });
+    document.querySelectorAll('[data-theme-pick="dark"]').forEach(function(b){
+      b.classList.toggle('on',dark); b.setAttribute('aria-pressed',dark?'true':'false');
+    });
+  }
+  function bindAgencyTheme(){
+    document.querySelectorAll('.theme-btn[data-theme-pick]').forEach(function(btn){
+      if(btn.dataset.bound)return;
+      btn.dataset.bound='1';
+      btn.addEventListener('click',function(){ setAgencyTheme(this.getAttribute('data-theme-pick')); });
+    });
+  }
+  bindAgencyTheme();
+  setAgencyTheme((function(){try{return localStorage.getItem(KEY)==='dark'?'dark':'light';}catch(e){return'light';}})());
+})();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js', { scope: './' }).catch(function () {});
+}
+</script>
+</body>
+</html>

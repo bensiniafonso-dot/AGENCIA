@@ -1,0 +1,8 @@
+URL GitHub Pages (dÃ©pÃ´t complet)
+PC/transfer-parceiro/
+https://VOTRE_USER_GITHUB.github.io/nh-liberdade-transfers/PC/transfer-parceiro/
+
+URL si ce dossier est la racine du dÃ©pÃ´t
+https://VOTRE_USER_GITHUB.github.io/nh-liberdade-transfers/
+
+Hub principal : https://VOTRE_USER_GITHUB.github.io/nh-liberdade-transfers/
